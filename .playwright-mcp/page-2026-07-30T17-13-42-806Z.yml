@@ -1,0 +1,57 @@
+- generic [active] [ref=f3e1]:
+  - navigation [ref=f3e2]:
+    - generic [ref=f3e3]:
+      - link "PRODUCT STORE" [ref=f3e4] [cursor=pointer]:
+        - /url: index.html
+      - list [ref=f3e7]:
+        - listitem [ref=f3e8]:
+          - link "Home (current)" [ref=f3e9] [cursor=pointer]:
+            - /url: index.html
+            - text: Home
+            - generic [ref=f3e10]: (current)
+        - listitem [ref=f3e11]:
+          - link "Contact" [ref=f3e12] [cursor=pointer]:
+            - /url: "#"
+        - listitem [ref=f3e13]:
+          - link "About us" [ref=f3e14] [cursor=pointer]:
+            - /url: "#"
+        - listitem [ref=f3e15]:
+          - link "Cart" [ref=f3e16] [cursor=pointer]:
+            - /url: "#"
+        - listitem [ref=f3e17]:
+          - link "Log in" [ref=f3e18] [cursor=pointer]:
+            - /url: "#"
+        - listitem
+        - listitem
+        - listitem [ref=f3e19]:
+          - link "Sign up" [ref=f3e20] [cursor=pointer]:
+            - /url: "#"
+  - generic [ref=f3e22]:
+    - generic [ref=f3e23]:
+      - heading "Products" [level=2] [ref=f3e24]
+      - table [ref=f3e26]:
+        - rowgroup [ref=f3e27]:
+          - row [ref=f3e28]:
+            - columnheader "Pic" [ref=f3e29]
+            - columnheader "Title" [ref=f3e30]
+            - columnheader "Price" [ref=f3e31]
+            - columnheader "x" [ref=f3e32]
+        - rowgroup
+    - generic [ref=f3e33]:
+      - heading "Total" [level=2] [ref=f3e34]
+      - generic:
+        - generic:
+          - heading [level=3]
+      - button "Place Order" [ref=f3e35]
+  - generic [ref=f3e37]:
+    - generic [ref=f3e40]:
+      - heading "About Us" [level=4] [ref=f3e41]
+      - paragraph [ref=f3e42]: We believe performance needs to be validated at every stage of the software development cycle and our open source compatible, massively scalable platform makes that a reality.
+    - generic [ref=f3e45]:
+      - heading "Get in Touch" [level=4] [ref=f3e46]
+      - paragraph [ref=f3e47]: "Address: 2390 El Camino Real"
+      - paragraph [ref=f3e48]: "Phone: +440 123456"
+      - paragraph [ref=f3e49]: "Email: demo@blazemeter.com"
+    - heading "PRODUCT STORE" [level=4] [ref=f3e53]
+  - contentinfo [ref=f3e55]:
+    - paragraph [ref=f3e56]: Copyright © Product Store

@@ -1,0 +1,62 @@
+- generic [active] [ref=f12e1]:
+  - navigation [ref=f12e2]:
+    - link "PRODUCT STORE" [ref=f12e3] [cursor=pointer]:
+      - /url: index.html
+    - list [ref=f12e6]:
+      - listitem [ref=f12e7]:
+        - link "Home (current)" [ref=f12e8] [cursor=pointer]:
+          - /url: index.html
+          - text: Home
+          - generic [ref=f12e9]: (current)
+      - listitem [ref=f12e10]:
+        - link "Contact" [ref=f12e11] [cursor=pointer]:
+          - /url: "#"
+      - listitem [ref=f12e12]:
+        - link "About us" [ref=f12e13] [cursor=pointer]:
+          - /url: "#"
+      - listitem [ref=f12e14]:
+        - link "Cart" [ref=f12e15] [cursor=pointer]:
+          - /url: cart.html
+      - listitem [ref=f12e16]:
+        - link "Log in" [ref=f12e17] [cursor=pointer]:
+          - /url: "#"
+      - listitem
+      - listitem
+      - listitem [ref=f12e18]:
+        - link "Sign up" [ref=f12e19] [cursor=pointer]:
+          - /url: "#"
+    - generic [ref=f12e21]:
+      - list [ref=f12e22]:
+        - listitem [ref=f12e23] [cursor=pointer]
+        - listitem [ref=f12e24] [cursor=pointer]
+        - listitem [ref=f12e25] [cursor=pointer]
+      - img "First slide" [ref=f12e28]
+      - button "Previous" [ref=f12e29] [cursor=pointer]
+      - button "Next" [ref=f12e32] [cursor=pointer]
+  - generic [ref=f12e36]:
+    - generic [ref=f12e38]:
+      - link "CATEGORIES" [ref=f12e39] [cursor=pointer]:
+        - /url: ""
+      - link "Phones" [ref=f12e40] [cursor=pointer]:
+        - /url: "#"
+      - link "Laptops" [ref=f12e41] [cursor=pointer]:
+        - /url: "#"
+      - link "Monitors" [ref=f12e42] [cursor=pointer]:
+        - /url: "#"
+    - list [ref=f12e45]:
+      - listitem [ref=f12e46]:
+        - button "Previous" [ref=f12e47]
+      - listitem [ref=f12e48]:
+        - button "Next" [ref=f12e49] [cursor=pointer]
+  - generic [ref=f12e51]:
+    - generic [ref=f12e54]:
+      - heading "About Us" [level=4] [ref=f12e55]
+      - paragraph [ref=f12e56]: We believe performance needs to be validated at every stage of the software development cycle and our open source compatible, massively scalable platform makes that a reality.
+    - generic [ref=f12e59]:
+      - heading "Get in Touch" [level=4] [ref=f12e60]
+      - paragraph [ref=f12e61]: "Address: 2390 El Camino Real"
+      - paragraph [ref=f12e62]: "Phone: +440 123456"
+      - paragraph [ref=f12e63]: "Email: demo@blazemeter.com"
+    - heading "PRODUCT STORE" [level=4] [ref=f12e67]
+  - contentinfo [ref=f12e69]:
+    - paragraph [ref=f12e70]: Copyright © Product Store
