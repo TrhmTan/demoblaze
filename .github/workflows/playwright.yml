@@ -25,14 +25,11 @@ jobs:
       - name: Install Playwright browsers (Chromium, Firefox, WebKit)
         run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Run Login tests
+      - name: Run demo suite (the challenge brief)
+        run: npx playwright test tests/demo.spec.ts --reporter=list
+
+      - name: Run Login regression suite
         run: npx playwright test tests/login.spec.ts --reporter=list
-
-      - name: Run Cart tests
-        run: npx playwright test tests/cart.spec.ts --reporter=list
-
-      - name: Run API validation tests
-        run: npx playwright test tests/api.spec.ts --reporter=list
 
       - name: Archive previous run
         if: always()

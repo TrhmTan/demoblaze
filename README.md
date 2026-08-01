@@ -53,7 +53,7 @@ playwright.manual.config.ts   Runs all 5 suites, JSON reporter feeds the xlsx sy
 scripts/                      archive-run.js, sync_test_results_to_xlsx.py, build_defect_sheet.py
 docs/                         PERFORMANCE_TESTING.md, REGRESSION_TESTING.md
 inputdata/Demoblaze_QA_TestCases.xlsx   Manual test case matrix + Defect sheet
-.github/workflows/playwright.yml        CI: 3 browsers, Login/Cart/API, HTML report artifact
+.github/workflows/playwright.yml        CI: 3 browsers, demo + Login regression, HTML report artifact
 ```
 
 **Page Object Model, not a shared `BaseTest`.** `LoginPage` and `CartPage` own the locators and the interaction logic that's genuinely tricky on this site - racing a native `alert()` against the welcome banner, polling Bootstrap's internal modal state before touching it, reading `/viewcart` to know how many rows to expect. Tests stay declarative (`cartPage.addProductToCart(...)`, `cartPage.placeOrderAndGetInvoice(...)`). Composition (a fresh POM instance per test) was chosen over an inheritance-based `BaseTest` so each test's dependencies stay explicit instead of inheriting a growing grab-bag of helpers.
@@ -77,7 +77,7 @@ The brief asks for a demo of one flow. To show what a fuller test effort around 
 - **A regression suite** (`tests/regression.spec.ts`) - an independent smoke pass that doesn't import from `pages/`, for a second, differently-implemented check on the same flows. See `docs/REGRESSION_TESTING.md`.
 - **Performance smoke checks** (`tests/performance.spec.ts`) - single-session response-time measurements, not a load test. See `docs/PERFORMANCE_TESTING.md`.
 - **A manual test case matrix** (`inputdata/Demoblaze_QA_TestCases.xlsx`) - Login/Cart/API sheets with Actual Result and Status columns synced from real automated runs (`npm run sync:all`), a live Summary dashboard, and a Defect sheet cross-referencing every defect against the current Status of its related test cases.
-- **CI** (`.github/workflows/playwright.yml`) - installs all 3 browsers and runs Login/Cart/API on every push/PR, publishing the HTML report as a build artifact.
+- **CI** (`.github/workflows/playwright.yml`) - installs all 3 browsers and runs `demo.spec.ts` + `login.spec.ts` on every push/PR (both 100% passing suites), publishing the HTML report as a build artifact. Cart and API are intentionally not in CI: 14 of Cart's cases and most of API's are `expect()` assertions that fail on purpose to confirm real app defects (see below) - a red CI badge from those would misread as broken automation rather than working automation finding real bugs. They still run locally via `npm run test:manual-suite` and feed the Defect sheet.
 
 Full script usage is documented in `scripts/README.md`.
 
