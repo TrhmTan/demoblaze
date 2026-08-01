@@ -23,6 +23,10 @@ browser_downloads/
 debug_output.txt
 test_results.txt
 
+# Auto-generated xlsx backups from scripts/sync_test_results_to_xlsx.py and
+# scripts/build_defect_sheet.py (one is written before every run)
+inputdata/*.backup-*.xlsx
+
 # Build outputs
 dist/
 build/

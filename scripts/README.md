@@ -49,6 +49,24 @@ python3 scripts/sync_test_results_to_xlsx.py \
 
 ---
 
+### `build_defect_sheet.py`
+**Purpose:** Add/rebuild the "Defect" sheet in the manual xlsx
+
+**What it does:**
+1. Reads a curated list of known defects (ID, title, severity, root cause) from the top of the script
+2. For each defect's related TC IDs, looks up their *current* Status from the Login/Cart/API sheets (whatever `sync_test_results_to_xlsx.py` last wrote there)
+3. Fully replaces the "Defect" sheet with this data - safe to re-run after editing the `DEFECTS` list or after a fresh `sync_test_results_to_xlsx.py` run
+4. Backs up the xlsx first, same as the sync script
+
+**Usage:**
+```bash
+python3 scripts/build_defect_sheet.py
+```
+
+**Why it looks up Status live instead of hardcoding it:** so the Defect sheet's "Automation Evidence" column can never silently drift out of sync with the Login/Cart/API sheets - re-running it after a new test run always reflects the latest reality.
+
+---
+
 ### `manage-reports.sh`
 **Purpose:** Cleanup and organize test result archives
 

@@ -49,6 +49,13 @@ except ImportError:
     sys.exit(1)
 
 TC_ID_RE = re.compile(r"^(TC-[A-Z]+-\d+|API-[A-Z]+-\d+)")
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi(text):
+    """Strip ANSI color codes from Playwright error messages - openpyxl
+    refuses to write raw escape characters (IllegalCharacterError)."""
+    return ANSI_RE.sub("", text) if text else text
 
 FILE_TO_SHEET = {
     "login.spec.ts": "Login",
@@ -57,11 +64,23 @@ FILE_TO_SHEET = {
 }
 
 STATUS_MAP = {
+    # Playwright's per-test outcome status (test.status in the JSON reporter,
+    # NOT result.status): "expected" means the run matched what the test
+    # declared it should do - a plain pass, OR a test.fail()-annotated test
+    # that correctly failed to confirm a documented defect. "unexpected"
+    # means it did NOT match - either a real regression, or a
+    # test.fail()-annotated defect that stopped reproducing (good news, but
+    # needs the annotation removed) or timed out for the wrong reason.
+    "expected": "Pass",
+    "unexpected": "Fail",
+    "flaky": "Flaky",
+    "skipped": "Skipped",
+    # Fallback keys in case a report ever exposes the raw result status
+    # instead (defensive - should not normally be hit).
     "passed": "Pass",
     "failed": "Fail",
     "timedOut": "Fail",
     "interrupted": "Fail",
-    "skipped": "Skipped",
 }
 
 
@@ -100,18 +119,32 @@ def load_run(results_path: Path):
 
             for test in tests:
                 res = last_result(test)
-                status = test.get("status") or (res.get("status") if res else "unknown")
+                # test["status"] is the outcome category (expected/unexpected/
+                # flaky/skipped) - this is what Status should be derived from,
+                # since it correctly accounts for test.fail()/fixme()
+                # annotations. res["status"] is the raw execution result
+                # (passed/failed/timedOut/skipped) - used for the human
+                # description in Actual Result, since "expected"/"unexpected"
+                # alone doesn't say what actually happened.
+                outcome_status = test.get("status") or "unknown"
+                raw_status = res.get("status") if res else "unknown"
                 duration = res.get("duration", 0) if res else 0
                 error_msg = None
                 if res and res.get("error"):
-                    error_msg = res["error"].get("message") or res["error"].get("stack")
+                    error_msg = strip_ansi(res["error"].get("message") or res["error"].get("stack"))
+                fail_annotation = next(
+                    (a.get("description") for a in test.get("annotations", []) if a.get("type") == "fail"),
+                    None,
+                )
                 entries_by_tc.setdefault(tc_id, []).append(
                     {
                         "title": title,
                         "sheet": sheet,
-                        "status": status,
+                        "status": outcome_status,
+                        "raw_status": raw_status,
                         "duration": duration,
                         "error": error_msg,
+                        "fail_annotation": fail_annotation,
                     }
                 )
 
@@ -132,16 +165,36 @@ def pick_canonical(entries):
 
 
 def format_actual_result(entry, run_label):
-    status = entry["status"]
+    raw_status = entry.get("raw_status", "unknown")
+    outcome = entry.get("status", "unknown")
     duration = entry.get("duration", 0)
-    if status == "passed":
+    is_annotated_fail = bool(entry.get("fail_annotation"))
+    annotation = entry.get("fail_annotation")
+
+    if raw_status == "passed" and not is_annotated_fail:
         return f"[Automated - {run_label}] PASSED ({duration} ms). Observed behavior matched Expected Result."
-    if status in ("failed", "timedOut", "interrupted"):
+
+    if raw_status == "passed" and is_annotated_fail:
+        # test.fail()-annotated (expects a rejection/defect to reproduce) but
+        # actually passed -> the assertion for "still buggy" did NOT hold.
+        # Either the defect got fixed, or the assertion needs revisiting.
+        return (f"[Automated - {run_label}] UNEXPECTED PASS ({duration} ms) - test is annotated "
+                f"test.fail() (\"{annotation}\") expecting the defect to still reproduce, but it "
+                f"passed instead. Re-verify: defect may be fixed, or the assertion may not be "
+                f"catching it correctly.")
+
+    if raw_status in ("failed", "timedOut", "interrupted"):
         err = (entry.get("error") or "no error message captured").strip().splitlines()[0][:400]
-        return f"[Automated - {run_label}] FAILED ({duration} ms). {err}"
-    if status == "skipped":
+        timeout_note = " (hit the global test timeout rather than a normal assertion failure - see Notes)" if raw_status == "timedOut" else ""
+        if is_annotated_fail:
+            return (f"[Automated - {run_label}] FAILED AS EXPECTED{timeout_note} ({duration} ms) - "
+                    f"confirms defect (\"{annotation}\"). {err}")
+        return f"[Automated - {run_label}] FAILED{timeout_note} ({duration} ms). {err}"
+
+    if raw_status == "skipped":
         return f"[Automated - {run_label}] SKIPPED - not executed this run."
-    return f"[Automated - {run_label}] status={status}"
+
+    return f"[Automated - {run_label}] outcome={outcome} raw_status={raw_status}"
 
 
 def find_header(ws):
@@ -224,6 +277,11 @@ def main():
 
             actual_text = format_actual_result(canonical, run_label)
             status_text = STATUS_MAP.get(canonical["status"], canonical["status"])
+
+            # Defensive: strip any remaining control characters (not just ANSI
+            # color codes) that openpyxl's IllegalCharacterError would reject,
+            # so one malformed error message can't abort the whole sync run.
+            actual_text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", actual_text)
 
             if args.dry_run:
                 print(f"[{sheet_name}] {tc_id}: Status -> {status_text} | Actual -> {actual_text[:80]}...")

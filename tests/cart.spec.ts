@@ -635,7 +635,7 @@ test.describe('CartPage Test Suite', () => {
             card: 'ABCD-EFGH'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Invalid card');
     });
 
@@ -667,7 +667,7 @@ test.describe('CartPage Test Suite', () => {
             card: '41111111111111111'  // 17 digits
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Invalid card');
     });
 
@@ -684,7 +684,7 @@ test.describe('CartPage Test Suite', () => {
             card: '0000000000000000'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Invalid card');
     });
 
@@ -701,7 +701,7 @@ test.describe('CartPage Test Suite', () => {
             card: '4111 1111 1111 1111'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Invalid card');
     });
 
@@ -718,7 +718,7 @@ test.describe('CartPage Test Suite', () => {
             card: '4111111111111112'  // Luhn invalid
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Invalid card');
     });
 
@@ -737,7 +737,7 @@ test.describe('CartPage Test Suite', () => {
             year: '2027'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Month must be 1-12');
     });
 
@@ -756,7 +756,7 @@ test.describe('CartPage Test Suite', () => {
             year: '2027'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Month must be 1-12');
     });
 
@@ -775,7 +775,7 @@ test.describe('CartPage Test Suite', () => {
             year: '2027'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Month must be numeric');
     });
 
@@ -807,7 +807,7 @@ test.describe('CartPage Test Suite', () => {
             year: '25'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Year must be');
     });
 
@@ -825,7 +825,7 @@ test.describe('CartPage Test Suite', () => {
             year: '2024'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('expired');
     });
 
@@ -843,7 +843,7 @@ test.describe('CartPage Test Suite', () => {
             year: '2100'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Year');
     });
 
@@ -861,7 +861,7 @@ test.describe('CartPage Test Suite', () => {
             year: 'abcd'
         });
 
-        const message = await cartPage.clickPurchaseExpectingAlert();
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
         expect(message).toContain('Year must be numeric');
     });
 
@@ -875,17 +875,22 @@ test.describe('CartPage Test Suite', () => {
         // Delete product
         await cartPage.deleteProduct('Samsung galaxy s6');
 
-        // Try to click Place Order — should be disabled or show alert
-        const placeOrderBtn = page.locator('button:has-text("Place Order")');
-        const isDisabled = await placeOrderBtn.isDisabled();
+        // Try to click Place Order — should be disabled, or the submitted
+        // order should be rejected with an "empty cart" message.
+        const isDisabled = await cartPage.placeOrderButton.isDisabled();
 
-        if (!isDisabled) {
-            // If button is enabled, clicking it should show alert
-            const message = await cartPage.clickPurchaseExpectingAlert();
-            expect(message).toContain('empty');
-        } else {
+        if (isDisabled) {
             expect(isDisabled).toBe(true);
+            return;
         }
+
+        // Button is enabled: open the modal and fill valid Name/Card first so
+        // we reach the empty-cart check instead of the unrelated "Please
+        // fill out Name and Creditcard" alert.
+        await cartPage.openPlaceOrderModal();
+        await cartPage.fillOrderDetails({ name: 'John Doe', card: '4111111111111111' });
+        const message = await cartPage.clickPurchaseExpectingAlertOrAccept();
+        expect(message).toContain('empty');
     });
 
     // TC-CRT-047: Modal stacking bug - Purchase button clickable during success popup [DEF-005]

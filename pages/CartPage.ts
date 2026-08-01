@@ -286,6 +286,48 @@ export class CartPage {
         return await message;
     }
 
+    /**
+     * Bounded variant of clickPurchaseExpectingAlert() for input Demoblaze is
+     * KNOWN NOT to validate (DEF-001/002/003/004 - card format, month, year,
+     * empty cart). clickPurchaseExpectingAlert() waits indefinitely for a
+     * native alert; since these fields have no client-side validation at
+     * all, that alert never fires and the order just succeeds instead, so
+     * the wait would hang for the full test timeout (~96-100s observed)
+     * instead of failing fast.
+     *
+     * This races the alert against the SweetAlert success popup with an 8s
+     * bound and returns a string either way, so existing
+     * `expect(message).toContain(...)` assertions written for the
+     * correct/desired (rejected) behavior keep working unchanged - they now
+     * just fail in seconds with a readable reason instead of a bare
+     * timeout when the defect is still present.
+     */
+    async clickPurchaseExpectingAlertOrAccept(): Promise<string> {
+        const dialogOutcome = this.page
+            .waitForEvent('dialog', { timeout: 8_000 })
+            .then(dialog => ({ kind: 'dialog' as const, dialog }))
+            .catch(() => ({ kind: 'timeout' as const }));
+
+        const successOutcome = this.successCheckmark
+            .waitFor({ state: 'visible', timeout: 8_000 })
+            .then(() => ({ kind: 'success' as const }))
+            .catch(() => ({ kind: 'timeout' as const }));
+
+        await this.clickPurchase();
+        const outcome = await Promise.race([dialogOutcome, successOutcome]);
+
+        if (outcome.kind === 'dialog') {
+            const message = outcome.dialog.message();
+            await outcome.dialog.accept();
+            return message;
+        }
+        if (outcome.kind === 'success') {
+            const invoiceText = await this.confirmSuccessPurchase();
+            return `(no validation alert - order was accepted instead) ${invoiceText}`;
+        }
+        return '(no validation alert and no success popup within 8s - unexpected app state, investigate)';
+    }
+
     /** Close Order Modal via Close Button */
     async closeModal() {
         await this.modalCloseButton.click();
