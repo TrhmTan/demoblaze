@@ -147,8 +147,12 @@ export class LoginPage {
      *  - Verifies the displayed username
      */
     async assertLoginSuccess(username: string) {
-        // Welcome text appearing is the definitive success signal
-        await expect(this.welcomeUser).toBeVisible({ timeout: 10000 });
+        // Welcome text appearing is the definitive success signal.
+        // 20s, not 10s: GitHub Actions' shared runners are measurably slower
+        // under WebKit (confirmed via CI run #12 - DIAG-001 timed out at
+        // exactly 10s on WebKit, passed on Chromium/Firefox in the same run).
+        // CI resource contention, not an app or test logic issue.
+        await expect(this.welcomeUser).toBeVisible({ timeout: 20000 });
         await expect(this.welcomeUser).toContainText(username);
     }
 

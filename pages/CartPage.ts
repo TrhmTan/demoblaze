@@ -365,7 +365,12 @@ export class CartPage {
      * (nên assertion XSS của TC-CRT-024 không bị ảnh hưởng).
      */
     async confirmSuccessPurchase(): Promise<string> {
-        await this.successCheckmark.waitFor({ state: 'visible', timeout: 10_000 });
+        // 20s, not 10s: GitHub Actions' shared runners render this SweetAlert
+        // noticeably slower under WebKit specifically (confirmed via CI run
+        // #12 - DEMO-004 timed out at exactly 10s on WebKit, passed on
+        // Chromium/Firefox in the same run). This is CI resource contention,
+        // not app or test logic - the popup does appear, just later.
+        await this.successCheckmark.waitFor({ state: 'visible', timeout: 20_000 });
         const successText = await this.successDialogText.evaluate((el: Element) => {
             const clone = el.cloneNode(true) as HTMLElement;
             clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));

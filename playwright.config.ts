@@ -6,9 +6,12 @@ export default defineConfig({
     // goto home -> filter -> mở product -> POST /addtocart, round trip thật
     // tới api.demoblaze.com đo được 1-2s mỗi bước.
     timeout: 90 * 1000,
-    // retries: 0 trong lúc dọn suite - có retry thì mọi race sẽ bị đội lốt
-    // "flaky" và trôi qua CI. Chỉ bật lại 1 khi suite đã sạch.
-    retries: 0,
+    // Suite đã dọn xong (13/45 fail cũ đã fix, log ở README/docs). Bật 1 retry
+    // riêng cho CI: CI run #12 cho thấy GitHub Actions' shared runner chậm hơn
+    // máy dev rõ rệt trên WebKit (2 timeout borderline ở đúng mốc 10s, pass ở
+    // Chromium/Firefox cùng run) - đây là môi trường CI, không phải race thật
+    // trong code. Local giữ 0 để không che giấu lỗi thật khi đang debug.
+    retries: process.env.CI ? 1 : 0,
     expect: { timeout: 15 * 1000 },
     use: {
         baseURL: 'https://www.demoblaze.com',
