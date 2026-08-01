@@ -1,7 +1,7 @@
-﻿import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator, expect } from '@playwright/test';
 
-/** Cart trÃªn Demoblaze load qua 2+N round trip tá»›i api.demoblaze.com vÃ 
- *  thÆ°á»ng xuyÃªn máº¥t 2-5s khi giá» nhiá»u item. */
+/** Cart trên Demoblaze load qua 2+N round trip tới api.demoblaze.com và
+ *  thường xuyên mất 2-5s khi giỏ nhiều item. */
 const CART_LOAD_TIMEOUT = 30_000;
 
 export class CartPage {
@@ -72,26 +72,26 @@ export class CartPage {
     // ------------------------------------------------------------------
 
     /**
-     * Chá»‘t Ä‘á»“ng bá»™ duy nháº¥t Ä‘Ã¡ng tin cho cart.html.
+     * Chốt đồng bộ duy nhất đáng tin cho cart.html.
      *
-     * TrÃ¬nh tá»± tháº­t trong /js/cart.js:
+     * Trình tự thật trong /js/cart.js:
      *   $(document).ready -> GET config.json
-     *                     -> POST /viewcart   (tráº£ vá» Items[])
-     *                     -> POST /view       (Má»˜T request cho Má»–I sáº£n pháº©m)
-     *   vÃ  chá»‰ trong success callback cá»§a /view má»›i cÃ³:
+     *                     -> POST /viewcart   (trả về Items[])
+     *                     -> POST /view       (MỘT request cho MỖI sản phẩm)
+     *   và chỉ trong success callback của /view mới có:
      *       $('#tbodyid').append('<tr ...>');
      *       total = total + parseInt(price);
      *
-     * Há»‡ quáº£ quan trá»ng: row trong DOM vÃ  biáº¿n `total` Ä‘Æ°á»£c cáº­p nháº­t trong
-     * CÃ™NG má»™t callback, nÃªn chÃºng luÃ´n khá»›p nhau á»Ÿ má»i thá»i Ä‘iá»ƒm - ká»ƒ cáº£
-     * khi má»›i render 1/5 row, hoáº·c khi chÆ°a render row nÃ o (0 === 0). Má»i
-     * heuristic kiá»ƒu "so DOM vá»›i total rá»“i coi lÃ  Ä‘Ã£ settle" (báº£n cÅ© cá»§a
-     * waitForCartTotalStable) Ä‘á»u thoÃ¡t sá»›m vÃ  tráº£ vá» sá»‘ row sai, phá»• biáº¿n
-     * nháº¥t lÃ  0. ÄÃ³ lÃ  root cause cá»§a 7 case fail + 3 case "Amount: 0 USD"
+     * Hệ quả quan trọng: row trong DOM và biến `total` được cập nhật trong
+     * CÙNG một callback, nên chúng luôn khớp nhau ở mọi thời điểm - kể cả
+     * khi mới render 1/5 row, hoặc khi chưa render row nào (0 === 0). Mọi
+     * heuristic kiểu "so DOM với total rồi coi là đã settle" (bản cũ của
+     * waitForCartTotalStable) đều thoát sớm và trả về số row sai, phổ biến
+     * nhất là 0. Đó là root cause của 7 case fail + 3 case "Amount: 0 USD"
      * + case flaky TC-CRT-008.
      *
-     * Chá»‘t Ä‘Ãºng: sá»‘ pháº§n tá»­ `Items` mÃ  /viewcart tráº£ vá». ÄÃ³ lÃ  con sá»‘ duy
-     * nháº¥t biáº¿t trÆ°á»›c Ä‘Æ°á»£c cart cuá»‘i cÃ¹ng pháº£i cÃ³ bao nhiÃªu row.
+     * Chốt đúng: số phần tử `Items` mà /viewcart trả về. Đó là con số duy
+     * nhất biết trước được cart cuối cùng phải có bao nhiêu row.
      */
     private async waitForCartLoad<T>(action: () => Promise<T>): Promise<T> {
         const viewCart = this.page.waitForResponse(
@@ -108,9 +108,9 @@ export class CartPage {
             expectedRows = 0;
         }
 
-        // toHaveCount tá»± retry, vÃ  vÃ¬ `total` Ä‘Æ°á»£c cá»™ng trong Ä‘Ãºng callback
-        // append row nÃªn khi Ä‘á»§ row thÃ¬ window.total cháº¯c cháº¯n Ä‘Ã£ lÃ  giÃ¡ trá»‹
-        // cuá»‘i cÃ¹ng -> purchaseOrder() khÃ´ng cÃ²n Ä‘á»c pháº£i total = 0.
+        // toHaveCount tự retry, và vì `total` được cộng trong đúng callback
+        // append row nên khi đủ row thì window.total chắc chắn đã là giá trị
+        // cuối cùng -> purchaseOrder() không còn đọc phải total = 0.
         await expect(this.cartRows).toHaveCount(expectedRows, { timeout: CART_LOAD_TIMEOUT });
         return result;
     }
@@ -130,7 +130,7 @@ export class CartPage {
         });
     }
 
-    /** Reload cart page vÃ  chá» load láº¡i xong (dÃ¹ng cho TC-CRT-018) */
+    /** Reload cart page và chờ load lại xong (dùng cho TC-CRT-018) */
     async reloadCart() {
         await this.waitForCartLoad(async () => {
             await this.page.reload();
@@ -156,8 +156,8 @@ export class CartPage {
             await this.page.goto('/');
         }
 
-        // Filter by category if specified. Chá» link sáº£n pháº©m hiá»‡n ra thay vÃ¬
-        // sleep 1000ms cá»‘ Ä‘á»‹nh - khÃ´ng phá»¥ thuá»™c vÃ o tÃªn endpoint filter.
+        // Filter by category if specified. Chờ link sản phẩm hiện ra thay vì
+        // sleep 1000ms cố định - không phụ thuộc vào tên endpoint filter.
         if (categoryName) {
             await this.page.click(`a.list-group-item:has-text("${categoryName}")`);
         }
@@ -168,8 +168,8 @@ export class CartPage {
         await productLink.click();
         await this.page.waitForSelector('.btn-success:has-text("Add to cart")');
 
-        // Chá»‘t vÃ o response /addtocart thay vÃ¬ sleep 1000ms. Round trip tháº­t
-        // Ä‘o Ä‘Æ°á»£c cÃ³ lÃºc > 1.5s, sleep ngáº¯n hÆ¡n lÃ m láº§n add káº¿ tiáº¿p bá»‹ race.
+        // Chốt vào response /addtocart thay vì sleep 1000ms. Round trip thật
+        // đo được có lúc > 1.5s, sleep ngắn hơn làm lần add kế tiếp bị race.
         const addToCart = this.page.waitForResponse(
             r => r.url().includes('/addtocart') && r.request().method() === 'POST',
             { timeout: CART_LOAD_TIMEOUT },
@@ -183,12 +183,12 @@ export class CartPage {
      * Navigate DIRECTLY to a product detail page (e.g. a shared/bookmarked
      * link) and add it to cart, WITHOUT visiting the homepage first.
      *
-     * DÃ¹ng Ä‘á»ƒ tÃ¡i hiá»‡n defect tháº­t: cookie Ä‘á»‹nh danh giá» hÃ ng guest
-     * (`user=<uuid>`) CHá»ˆ Ä‘Æ°á»£c set bá»Ÿi /js/index.js. /js/prod.js khÃ´ng set
-     * cookie nÃ y. VÃ o tháº³ng prod.html -> document.cookie rá»—ng -> addToCart()
-     * váº«n alert "Product added", nhÆ°ng cart.html sau Ä‘Ã³ gá»­i
-     * {"cookie": ""} lÃªn /viewcart vÃ  nháº­n vá» bucket dÃ¹ng chung cá»§a Má»ŒI
-     * guest khÃ´ng cookie (Ä‘o thá»±c táº¿: 168 sáº£n pháº©m cá»§a ngÆ°á»i khÃ¡c).
+     * Dùng để tái hiện defect thật: cookie định danh giỏ hàng guest
+     * (`user=<uuid>`) CHỈ được set bởi /js/index.js. /js/prod.js không set
+     * cookie này. Vào thẳng prod.html -> document.cookie rỗng -> addToCart()
+     * vẫn alert "Product added", nhưng cart.html sau đó gửi
+     * {"cookie": ""} lên /viewcart và nhận về bucket dùng chung của MỌI
+     * guest không cookie (đo thực tế: 168 sản phẩm của người khác).
      * Xem TC-CRT-046 / TC-CRT-047.
      */
     async addProductToCartViaDirectUrl(prodId: number) {
@@ -204,10 +204,10 @@ export class CartPage {
     }
 
     /**
-     * Sá»‘ row hiá»‡n cÃ³ trong giá».
+     * Số row hiện có trong giỏ.
      *
-     * KHÃ”NG chá» gÃ¬ á»Ÿ Ä‘Ã¢y ná»¯a - viá»‡c chá» Ä‘Ã£ do waitForCartLoad() lÃ m á»Ÿ
-     * navigateToCart/goto/reloadCart/deleteProduct. HÃ m nÃ y chá»‰ Ä‘á»c.
+     * KHÔNG chờ gì ở đây nữa - việc chờ đã do waitForCartLoad() làm ở
+     * navigateToCart/goto/reloadCart/deleteProduct. Hàm này chỉ đọc.
      */
     async getCartRowsCount(): Promise<number> {
         return await this.cartRows.count();
@@ -216,9 +216,9 @@ export class CartPage {
     /** Delete product by name or index */
     async deleteProduct(productName: string) {
         const row = this.page.locator(`#tbodyid tr:has-text("${productName}")`).first();
-        // deleteItem() trong /js/cart.js gá»i location.reload() sau khi
-        // /deleteitem tráº£ vá» -> trang load láº¡i vÃ  báº¯n /viewcart má»›i.
-        // waitForCartLoad chá»‘t Ä‘Ãºng vÃ o /viewcart cá»§a láº§n load láº¡i Ä‘Ã³.
+        // deleteItem() trong /js/cart.js gọi location.reload() sau khi
+        // /deleteitem trả về -> trang load lại và bắn /viewcart mới.
+        // waitForCartLoad chốt đúng vào /viewcart của lần load lại đó.
         await this.waitForCartLoad(async () => {
             await row.locator('a:has-text("Delete")').click();
         });
@@ -247,9 +247,9 @@ export class CartPage {
         if (details.year !== undefined) await this.modalYearInput.fill(details.year);
     }
 
-    /** Submit the purchase form (Ä‘Æ°á»ng happy path -> SweetAlert, khÃ´ng cÃ³
-     *  native dialog). Náº¿u Name hoáº·c Card rá»—ng thÃ¬ app báº¯n window.alert()
-     *  Ä‘á»“ng bá»™ vÃ  click() sáº½ treo - trÆ°á»ng há»£p Ä‘Ã³ pháº£i dÃ¹ng
+    /** Submit the purchase form (đường happy path -> SweetAlert, không có
+     *  native dialog). Nếu Name hoặc Card rỗng thì app bắn window.alert()
+     *  đồng bộ và click() sẽ treo - trường hợp đó phải dùng
      *  clickPurchaseExpectingAlert().
      */
     async clickPurchase() {
@@ -258,17 +258,17 @@ export class CartPage {
     }
 
     /**
-     * Click Purchase khi biáº¿t cháº¯c app sáº½ báº¯n native alert (thiáº¿u Name
-     * hoáº·c Card). Tráº£ vá» ná»™i dung alert.
+     * Click Purchase khi biết chắc app sẽ bắn native alert (thiếu Name
+     * hoặc Card). Trả về nội dung alert.
      *
-     * KHÃ”NG dÃ¹ng `Promise.all([page.waitForEvent('dialog'), click()])`:
-     * Ä‘Äƒng kÃ½ listener lÃ m Playwright Táº®T auto-dismiss, window.alert() cháº·n
-     * main thread nÃªn click() khÃ´ng bao giá» resolve, mÃ  Promise.all láº¡i Ä‘á»£i
-     * cáº£ hai -> khoÃ¡ cháº¿t Ä‘áº¿n háº¿t timeout. ÄÃ³ chÃ­nh lÃ  nguyÃªn nhÃ¢n
-     * TC-CRT-014 vÃ  TC-CRT-019 timeout 30s.
+     * KHÔNG dùng `Promise.all([page.waitForEvent('dialog'), click()])`:
+     * đăng ký listener làm Playwright TẮT auto-dismiss, window.alert() chặn
+     * main thread nên click() không bao giờ resolve, mà Promise.all lại đợi
+     * cả hai -> khoá chết đến hết timeout. Đó chính là nguyên nhân
+     * TC-CRT-014 và TC-CRT-019 timeout 30s.
      *
-     * CÃ¡ch Ä‘Ãºng: accept dialog ngay trong handler Ä‘á»ƒ giáº£i phÃ³ng main thread,
-     * click() tá»± resolve sau Ä‘Ã³.
+     * Cách đúng: accept dialog ngay trong handler để giải phóng main thread,
+     * click() tự resolve sau đó.
      */
     async clickPurchaseExpectingAlert(): Promise<string> {
         let resolveMessage!: (m: string) => void;
@@ -349,14 +349,14 @@ export class CartPage {
     /**
      * Confirm Success dialog and return invoice content string.
      *
-     * KHÃ”NG dÃ¹ng innerText: innerText Ã¡p CSS white-space:normal nÃªn gá»™p má»i
-     * chuá»—i khoáº£ng tráº¯ng liÃªn tiáº¿p vÃ  trim hai Ä‘áº§u. Äo trá»±c tiáº¿p trÃªn chÃ­nh
-     * element .sweet-alert p vá»›i name = "  John Doe ":
-     *     innerText   -> "Name: John Doe"        (máº¥t space -> TC-CRT-041 fail giáº£)
-     *     textContent -> "Name:   John Doe "     (giá»¯ nguyÃªn)
-     * á»ž Ä‘Ã¢y clone node, thay <br> báº±ng "\n" rá»“i láº¥y textContent: giá»¯ Ä‘Æ°á»£c
-     * cáº£ khoáº£ng tráº¯ng láº«n ngáº¯t dÃ²ng, Ä‘á»“ng thá»i váº«n tráº£ vá» text Ä‘Ã£ unescape
-     * (nÃªn assertion XSS cá»§a TC-CRT-024 khÃ´ng bá»‹ áº£nh hÆ°á»Ÿng).
+     * KHÔNG dùng innerText: innerText áp CSS white-space:normal nên gộp mọi
+     * chuỗi khoảng trắng liên tiếp và trim hai đầu. Đo trực tiếp trên chính
+     * element .sweet-alert p với name = "  John Doe ":
+     *     innerText   -> "Name: John Doe"        (mất space -> TC-CRT-041 fail giả)
+     *     textContent -> "Name:   John Doe "     (giữ nguyên)
+     * Ở đây clone node, thay <br> bằng "\n" rồi lấy textContent: giữ được
+     * cả khoảng trắng lẫn ngắt dòng, đồng thời vẫn trả về text đã unescape
+     * (nên assertion XSS của TC-CRT-024 không bị ảnh hưởng).
      */
     async confirmSuccessPurchase(): Promise<string> {
         await this.successCheckmark.waitFor({ state: 'visible', timeout: 10_000 });
@@ -377,14 +377,14 @@ export class CartPage {
     }
 
     /**
-     * Convenience wrapper cho chuá»—i "open modal -> fill -> purchase -> Ä‘á»c
-     * hoÃ¡ Ä‘Æ¡n" dÃ¹ng á»Ÿ pháº§n lá»›n cÃ¡c case checkout.
+     * Convenience wrapper cho chuỗi "open modal -> fill -> purchase -> đọc
+     * hoá đơn" dùng ở phần lớn các case checkout.
      *
-     * LÆ¯U Ã (Ä‘Ã£ Ä‘á»‘i chiáº¿u source purchaseOrder()): text hoÃ¡ Ä‘Æ¡n SweetAlert
-     * chá»‰ chá»©a Id / Amount / Card Number / Name / Date. Country, City,
-     * Month, Year Ä‘Æ°á»£c form thu tháº­p nhÆ°ng purchaseOrder() khÃ´ng há» Ä‘á»c vÃ 
-     * khÃ´ng bao giá» xuáº¥t hiá»‡n trong hoÃ¡ Ä‘Æ¡n. KhÃ´ng Ä‘Æ°á»£c assert 4 field nÃ y
-     * vÃ o hoÃ¡ Ä‘Æ¡n.
+     * LƯU Ý (đã đối chiếu source purchaseOrder()): text hoá đơn SweetAlert
+     * chỉ chứa Id / Amount / Card Number / Name / Date. Country, City,
+     * Month, Year được form thu thập nhưng purchaseOrder() không hề đọc và
+     * không bao giờ xuất hiện trong hoá đơn. Không được assert 4 field này
+     * vào hoá đơn.
      */
     async placeOrderAndGetInvoice(details: {
         name?: string;
