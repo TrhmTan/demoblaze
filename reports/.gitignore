@@ -20,15 +20,6 @@ test-results/archive/**/traces/
 !.gitkeep
 !*/.gitkeep
 
-# Coverage - exclude reports, keep metrics
-coverage/*
-!coverage/.gitkeep
-!coverage/README.md
-
-# Performance - exclude large reports, keep summaries
-performance/**/*.html
-performance/**/*.log
-
 # Common OS files
 .DS_Store
 Thumbs.db

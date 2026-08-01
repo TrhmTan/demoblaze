@@ -51,7 +51,7 @@ playwright.config.ts          Chromium/Firefox/WebKit, used by test:demo and tes
 playwright.perf.config.ts     Single browser, sequential, longer timeout
 playwright.manual.config.ts   Runs all 5 suites, JSON reporter feeds the xlsx sync
 scripts/                      archive-run.js, sync_test_results_to_xlsx.py, build_defect_sheet.py
-docs/                         API validation plan, performance/regression suite docs
+docs/                         PERFORMANCE_TESTING.md, REGRESSION_TESTING.md
 inputdata/Demoblaze_QA_TestCases.xlsx   Manual test case matrix + Defect sheet
 .github/workflows/playwright.yml        CI: 3 browsers, Login/Cart/API, HTML report artifact
 ```
