@@ -1,0 +1,32 @@
+# Exclude large test artifacts but keep folder structure
+
+# Test results - exclude large files, keep summaries
+test-results/latest/*.zip
+test-results/latest/traces/
+test-results/archive/**/*.zip
+test-results/archive/**/traces/
+
+# Keep .gitkeep for empty directories
+!.gitkeep
+!*/.gitkeep
+
+# Coverage - exclude reports, keep metrics
+coverage/*
+!coverage/.gitkeep
+!coverage/README.md
+
+# Performance - exclude large reports, keep summaries
+performance/**/*.html
+performance/**/*.log
+
+# Common OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace

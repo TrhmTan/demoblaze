@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Playwright artifacts (root-level raw output only - anchored with a leading
+# slash so this does NOT also shadow reports/test-results/ and
+# reports/coverage/, which are curated/committed report scaffolding)
+/playwright-report/
+/test-results/
+/blob-report/
+.playwright/
+.playwright-mcp/
+playwright/.cache/
+browser_downloads/
+
+# Coverage (root-level only, see note above)
+/coverage/
+*.lcov
+
+# Logs & temp output
+*.log
+*.zip
+*_tmp.js
+debug_output.txt
+test_results.txt
+
+# Build outputs
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+.~lock.*

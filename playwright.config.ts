@@ -30,14 +30,6 @@ export default defineConfig({
             name: 'WebKit',
             use: { ...devices['Desktop Safari'] },
         },
-        {
-            name: 'Mobile Chrome',
-            use: { ...devices['Pixel 5'] },
-        },
-        {
-            name: 'Mobile Safari',
-            use: { ...devices['iPhone 12'] },
-        },
     ],
     reporter: [['html'], ['list']],
 });

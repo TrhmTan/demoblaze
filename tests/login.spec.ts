@@ -175,7 +175,7 @@ test.describe('LoginPage Test Suite', () => {
         const loginPage = new LoginPage(page);
         await loginPage.openLoginPopup();
         await loginPage.login(UNIQUE_USER, 'WrongPass99');
-        await loginPage.assertLoginFail();
+        await loginPage.assertLoginFail('Wrong password');
     });
 
     // TC-LOG-019: Login with non-existent username
@@ -183,7 +183,7 @@ test.describe('LoginPage Test Suite', () => {
         const loginPage = new LoginPage(page);
         await loginPage.openLoginPopup();
         await loginPage.login('ghost_user_xyz', 'anypass');
-        await loginPage.assertLoginFail();
+        await loginPage.assertLoginFail('User does not exist');
     });
 
     // TC-LOG-020: SQL Injection attempt in Username field

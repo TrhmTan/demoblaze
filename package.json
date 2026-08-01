@@ -4,8 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npx playwright test",
-    "test:e2e": "npx playwright test --reporter=html"
+    "test": "playwright test",
+    "test:api": "playwright test tests/api.spec.ts",
+    "test:ui": "playwright test tests/login.spec.ts tests/cart.spec.ts",
+    "test:regression": "playwright test tests/regression.spec.ts",
+    "test:demo": "playwright test tests/demo.spec.ts",
+    "test:perf": "playwright test --config playwright.perf.config.ts",
+    "test:manual-suite": "node scripts/archive-run.js && playwright test --config playwright.manual.config.ts",
+    "sync:tc-sheet": "python3 scripts/sync_test_results_to_xlsx.py",
+    "test:headed": "playwright test --headed",
+    "test:chromium": "playwright test --project=Chromium",
+    "report": "playwright show-report"
   },
   "keywords": [],
   "author": "",

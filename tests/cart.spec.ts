@@ -56,8 +56,10 @@ test.describe('CartPage Test Suite', () => {
         await cartPage.addProductToCart('Monitors', 'ASUS Full HD'); // $230
         await cartPage.navigateToCart();
 
-        // Wait to settle
-        await page.waitForTimeout(2000);
+        // No extra sleep needed: navigateToCart() already chốt vào response
+        // /viewcart và đợi đủ số row qua toHaveCount. window.total được cộng
+        // trong đúng callback append row, nên khi đủ row thì total đã là giá
+        // trị cuối cùng (xem waitForCartLoad() trong CartPage.ts).
         const total = await cartPage.getTotalPriceValue();
         expect(total).toBe(880); // 650 + 230
     });

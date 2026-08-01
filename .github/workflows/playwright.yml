@@ -22,27 +22,48 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers (Chromium only)
-        run: npx playwright install chromium --with-deps
+      - name: Install Playwright browsers (Chromium, Firefox, WebKit)
+        run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Run Login tests (Chromium)
-        run: npx playwright test tests/login.spec.ts --project=Chromium --reporter=list
-        continue-on-error: true
+      - name: Run Login tests
+        run: npx playwright test tests/login.spec.ts --reporter=list
 
-      - name: Run Cart tests (Chromium)
-        run: npx playwright test tests/cart.spec.ts --project=Chromium --reporter=list
+      - name: Run Cart tests
+        run: npx playwright test tests/cart.spec.ts --reporter=list
 
-      - name: Upload HTML report
+      - name: Run API validation tests
+        run: npx playwright test tests/api.spec.ts --reporter=list
+
+      - name: Archive previous run
+        if: always()
+        run: |
+          if [ -d reports/test-results/latest ]; then
+            mkdir -p "reports/test-results/archive/$(date +%Y-%m-%d)-run-${{ github.run_number }}"
+            mv reports/test-results/latest/* "reports/test-results/archive/$(date +%Y-%m-%d)-run-${{ github.run_number }}/" || true
+          fi
+
+      - name: Save latest results
+        if: always()
+        run: |
+          mkdir -p reports/test-results/latest
+          cp -r playwright-report/index.html reports/test-results/latest/ || true
+          # Create summary from test results
+          echo '{"timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "run": ${{ github.run_number }}, "status": "completed"}' > reports/test-results/latest/summary.json
+
+      - name: Upload HTML report to artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-${{ github.run_number }}
           path: playwright-report
           retention-days: 30
 
       - name: Report test results
+        if: always()
         run: |
-          echo "✅ Tests completed. Report available in artifacts."
+          echo "✅ Tests completed. Report available:"
+          echo "   - GitHub Artifacts: playwright-report-${{ github.run_number }}"
+          echo "   - Local Copy: reports/test-results/latest/"
           if [ $? -ne 0 ]; then
             echo "❌ Some tests failed. Check the HTML report for details."
           fi

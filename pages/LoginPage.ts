@@ -14,6 +14,9 @@ export class LoginPage {
     readonly logoutLink: Locator;
     readonly submitButton: string = 'button[onclick="logIn()"]';
 
+    /** Message of the native alert raised by the last login() attempt, if any. */
+    private lastDialogMessage: string | null = null;
+
     constructor(page: Page) {
         this.page = page;
         this.loginNavLink = page.locator('#login2');
@@ -40,11 +43,45 @@ export class LoginPage {
         return this.openLoginPopup();
     }
 
+    /**
+     * Submit the login form and wait deterministically for whichever real
+     * signal happens: a native alert (failure — e.g. "Wrong password.",
+     * "User does not exist.") or the welcome banner (success).
+     *
+     * logIn() calls the auth API asynchronously, so on failure the alert
+     * fires from the response callback, not synchronously with the click —
+     * there is no fixed delay that is both safe and fast. This races the two
+     * real outcomes instead of assuming one of them (a previous version
+     * always waited for the modal to close + welcome banner, which meant
+     * every failed-login test hung for a full 15s timeout before failing).
+     * The captured dialog message is available to assertLoginFail().
+     */
     async login(username: string, password: string) {
-        this.page.once('dialog', dialog => dialog.accept());
+        this.lastDialogMessage = null;
         await this.usernameInput.fill(username);
         await this.passwordInput.fill(password);
+
+        const dialogOutcome = this.page
+            .waitForEvent('dialog', { timeout: 10_000 })
+            .then(dialog => ({ type: 'dialog' as const, dialog }))
+            .catch(() => ({ type: 'timeout' as const }));
+
+        const successOutcome = this.welcomeUser
+            .waitFor({ state: 'visible', timeout: 10_000 })
+            .then(() => ({ type: 'success' as const }))
+            .catch(() => ({ type: 'timeout' as const }));
+
         await this.loginButton.click();
+        const outcome = await Promise.race([dialogOutcome, successOutcome]);
+
+        if (outcome.type === 'dialog') {
+            this.lastDialogMessage = outcome.dialog.message();
+            await outcome.dialog.accept();
+        }
+        // type === 'success': nothing to accept; assertLoginSuccess() verifies it.
+        // type === 'timeout': neither signal arrived in 10s — both
+        // assertLoginSuccess() and assertLoginFail() will fail loudly below,
+        // which is correct: that state means the app didn't respond as expected.
     }
 
     /**
@@ -60,15 +97,22 @@ export class LoginPage {
 
     /**
      * Assert a FAILED login.
-     * The dialog is already handled by the pre-registered handler in login().
-     * We simply wait a moment for the response to settle, then confirm the
-     * welcome text is NOT visible (user was not authenticated).
+     *
+     * Confirms the user was not authenticated AND that a native alert was
+     * actually raised (login() captures its message). Pass expectedMessage
+     * when the exact wording is known (e.g. "Wrong password.", "User does
+     * not exist.") so a silently-changed error string fails the test instead
+     * of being masked by a presence-only check.
      */
-    async assertLoginFail() {
-        // Give the server/dialog a moment to settle
-        await this.page.waitForTimeout(1500);
-        // Confirm the user was not logged in
+    async assertLoginFail(expectedMessage?: string) {
         await expect(this.welcomeUser).not.toBeVisible();
+        expect(
+            this.lastDialogMessage,
+            'Expected login() to have captured a native alert on failed login'
+        ).not.toBeNull();
+        if (expectedMessage) {
+            expect(this.lastDialogMessage).toContain(expectedMessage);
+        }
     }
 
     /** Close the login modal using Close button */
