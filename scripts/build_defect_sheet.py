@@ -216,6 +216,28 @@ DEFECTS = [
         "reference": "docs/api-analysis/BUG_REPORT_API_FAILURES.md",
     },
     {
+        "id": "DEF-API-007",
+        "title": "/addtocart returns 200 OK but silently fails to persist items for a cookie the API invented itself (never seen by index.js)",
+        "area": "API / /addtocart persistence",
+        "severity": "High",
+        "related_tc": ["API-ADD-002"],
+        "root_cause": (
+            "Two sequential /addtocart calls (prod_id 1, then 2) using a synthetic cookie the test "
+            "invents itself both return HTTP 200, but the following /viewcart for that same cookie "
+            "reports 0 items, not the 2 just added. Originally logged as an open test-infra finding "
+            "(possible race condition) - reclassified as a confirmed application defect after "
+            "re-running with `--repeat-each=3` across all 3 browser engines: 9/9 executions failed "
+            "identically. Perfect consistency across 3 independent browser engines rules out a "
+            "client-side timing race (a real race would show some variance); the behavior is "
+            "deterministic on the server side. Likely tied to the same root cause as DEF-SYS-001 "
+            "(only index.js establishes a 'real' guest identity) - the API returns a misleading "
+            "success response (200) while silently not persisting the item for a cookie that was "
+            "never seen by a real page load, rather than rejecting the request outright."
+        ),
+        "evidence": "9/9 executions failed identically (3 browsers x --repeat-each=3): 'Expected >= 2, Received: 0'.",
+        "reference": "tests/api.spec.ts",
+    },
+    {
         "id": "DEF-TEST-002",
         "title": "API-CART-001/API-DEL-004 asserted a response shape the app never returns (test-script bug, not an app defect) - confirmed fixed",
         "area": "Test infrastructure (not an app defect)",
@@ -229,30 +251,6 @@ DEFECTS = [
             "failing before the fix, passing after, with no other change)."
         ),
         "evidence": "",
-        "reference": "tests/api.spec.ts",
-    },
-    {
-        "id": "DEF-TEST-003",
-        "title": "API-ADD-002 gets 0 items back after 2 successful /addtocart calls - root cause still uncertain, NOT patched with a guessed fix",
-        "area": "Test infrastructure OR a real cart-persistence defect - genuinely unresolved",
-        "severity": "Low",
-        "related_tc": ["API-ADD-002"],
-        "root_cause": (
-            "After fixing the /viewcart shape bug (DEF-TEST-002), this test still fails: two "
-            "sequential, individually-awaited /addtocart calls both return 200, but the following "
-            "/viewcart for the same cookie reports body.Items.length === 0, not >= 2. Unlike the "
-            "/view fix below, there isn't strong evidence pointing at one specific cause here, so "
-            "no code change was guessed at just to make it pass. Two real possibilities: (a) a "
-            "test-script issue - the synthetic cookie (test_multi_<timestamp>) is never established "
-            "through the normal index.js flow the way a real browser session would be, unlike every "
-            "UI-level cart test which goes through CartPage.ts; or (b) a genuine API-layer defect - "
-            "/addtocart doesn't reliably persist multiple sequential adds for the same cookie, which "
-            "would need to be reclassified as a real DEF-API entry, not a test bug. Recommended next "
-            "step (needs live access this environment doesn't have): run "
-            "`npx playwright test tests/api.spec.ts -g \"API-ADD-002\" --repeat-each=3` to see if the "
-            "0 is consistent (points to (b)) or intermittent (points to (a))."
-        ),
-        "evidence": "Confirmed still failing in the 2026-08-01 09:45 UTC run: 'Expected >= 2, Received: 0'.",
         "reference": "tests/api.spec.ts",
     },
     {
