@@ -116,13 +116,18 @@ test.describe('API Validation Suite', () => {
                 }
             });
 
-            // Expected: HTTP 200 OK with items array
+            // Expected: HTTP 200 OK with items array.
+            // NOTE: the real /viewcart response is `{"Items": [...]}` - a
+            // top-level, capital-I array, NOT `{status, data: {items}}`. That
+            // was confirmed independently via CartPage.ts (see body?.Items
+            // there), which the UI-level cart tests already rely on
+            // successfully. The original assertions here asserted a made-up
+            // REST-ish shape that the app never returns, so this test failed
+            // on a bad assumption, not a real app defect.
             expect(response.status()).toBe(200);
             const body = await response.json();
-            expect(body).toHaveProperty('status');
-            expect(body.status).toBe('success');
-            expect(body.data).toHaveProperty('items');
-            expect(Array.isArray(body.data.items)).toBeTruthy();
+            expect(body).toHaveProperty('Items');
+            expect(Array.isArray(body.Items)).toBeTruthy();
         });
 
         test('API-CART-002: View cart with empty cookie', async ({ request }) => {
@@ -163,13 +168,18 @@ test.describe('API Validation Suite', () => {
                 }
             });
 
+            // NOTE: real catalog title is 'Samsung galaxy s6' (lowercase
+            // "galaxy"/"s6") - confirmed via cart.spec.ts/regression.spec.ts,
+            // which click this exact product name successfully throughout
+            // the suite. The original 'Samsung Galaxy S6' assertion here was
+            // a case-mismatch test-authoring bug, not a real app defect.
             expect(response.status()).toBe(200);
             const body = await response.json();
             expect(body).toHaveProperty('id');
             expect(body).toHaveProperty('title');
             expect(body).toHaveProperty('price');
             expect(body.id).toBe('1');
-            expect(body.title).toBe('Samsung Galaxy S6');
+            expect(body.title).toBe('Samsung galaxy s6');
             expect(body.price).toBe(360);
         });
 
@@ -274,8 +284,9 @@ test.describe('API Validation Suite', () => {
             const viewResponse = await request.post(`${API_BASE}/viewcart`, {
                 data: { cookie: cookie }
             });
+            // NOTE: real shape is `body.Items` (see API-CART-001 note above).
             const body = await viewResponse.json();
-            expect(body.data.items.length).toBeGreaterThanOrEqual(2);
+            expect(body.Items.length).toBeGreaterThanOrEqual(2);
         });
 
         test('API-ADD-003: Add product with invalid product ID', async ({ request }) => {
@@ -403,8 +414,9 @@ test.describe('API Validation Suite', () => {
             const viewResponse = await request.post(`${API_BASE}/viewcart`, {
                 data: { cookie: cookie }
             });
+            // NOTE: real shape is `body.Items` (see API-CART-001 note above).
             const viewBody = await viewResponse.json();
-            const items = viewBody.data.items;
+            const items = viewBody.Items;
 
             // Delete each item
             for (const item of items) {
@@ -422,7 +434,7 @@ test.describe('API Validation Suite', () => {
                 data: { cookie: cookie }
             });
             const finalBody = await finalViewResponse.json();
-            expect(finalBody.data.items.length).toBe(0);
+            expect(finalBody.Items.length).toBe(0);
         });
     });
 

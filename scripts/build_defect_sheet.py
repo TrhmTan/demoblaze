@@ -138,21 +138,101 @@ DEFECTS = [
         "reference": "reports/test-cases/cart-failure-analysis.md",
     },
     {
-        "id": "DEF-API-001",
-        "title": "API layer performs almost no input validation or auth enforcement",
-        "area": "API (/login, /purchaseorder, /viewcart, /addtocart, /deleteitem, /view)",
+        "id": "DEF-API-002",
+        "title": "POST /login accepts invalid/malformed credentials without rejecting (no 401/400)",
+        "area": "API / /login",
         "severity": "Critical",
-        "related_tc": [],
+        "related_tc": ["API-LOG-002", "API-LOG-004", "API-LOG-005", "API-LOG-006"],
         "root_cause": (
-            "Nearly every malformed or invalid request (wrong credentials, SQL-injection-shaped "
-            "input, missing required fields, invalid IDs, missing auth cookie) returns HTTP 200 "
-            "instead of 400/401/404. Full request/response matrix in the reference doc; the API "
-            "sheet's automated checks (API-LOG-*, API-CART-*, API-PROD-*, API-ADD-*, API-DEL-*, "
-            "API-ORD-*) enforce the correct status codes and currently fail against the live API "
-            "for this reason - see the API sheet's Status column for the current count."
+            "Wrong password, empty username, empty password, and SQL-injection-shaped input "
+            "(' OR '1'='1) are all expected to return 401/400 with a structured error body, but "
+            "the live API does not reject any of them the way a hardened auth endpoint should."
         ),
         "evidence": "",
         "reference": "docs/api-analysis/BUG_REPORT_API_FAILURES.md",
+    },
+    {
+        "id": "DEF-API-003",
+        "title": "Cart endpoints (/viewcart, /addtocart, /deleteitem) enforce no auth/ownership or input validation",
+        "area": "API / cart endpoints",
+        "severity": "Critical",
+        "related_tc": ["API-CART-002", "API-CART-003", "API-ADD-003", "API-ADD-004", "API-ADD-005",
+                       "API-DEL-002", "API-DEL-003"],
+        "root_cause": (
+            "Empty/missing cookie, invalid product ID, missing cookie on add, flag=false, and "
+            "deleting a non-existent item are all expected to return 400/401/404, but the live "
+            "API accepts or no-ops on all of them with HTTP 200 instead. Combined with "
+            "DEF-SYS-001 (shared guest bucket), this confirms the cart endpoints do not treat "
+            "the cookie as a real auth/ownership token."
+        ),
+        "evidence": "",
+        "reference": "docs/api-analysis/BUG_REPORT_API_FAILURES.md",
+    },
+    {
+        "id": "DEF-API-004",
+        "title": "POST /view (product details) does not validate the product ID",
+        "area": "API / /view",
+        "severity": "High",
+        "related_tc": ["API-PROD-003", "API-PROD-004", "API-PROD-005"],
+        "root_cause": (
+            "A non-existent product ID (99999), a missing idp_ field, and idp_=0 are all "
+            "expected to return 400/404 with a structured error, but the live API returns 200 "
+            "for all three instead of validating the ID."
+        ),
+        "evidence": "",
+        "reference": "docs/api-analysis/BUG_REPORT_API_FAILURES.md",
+    },
+    {
+        "id": "DEF-API-005",
+        "title": "POST /purchaseorder accepts invalid financial data and missing required fields with no validation",
+        "area": "API / /purchaseorder",
+        "severity": "Critical",
+        "related_tc": ["API-ORD-002", "API-ORD-003", "API-ORD-004", "API-ORD-005", "API-ORD-006",
+                       "API-ORD-007", "API-ORD-008", "API-ORD-009", "API-ORD-010", "API-ORD-011",
+                       "API-ORD-012", "API-ORD-013"],
+        "root_cause": (
+            "Empty cart, non-numeric/wrong-length card number, invalid/non-numeric/out-of-range "
+            "month, expired/2-digit/far-future year, and missing required fields (country, "
+            "cardnumber) are all expected to return 400 with a structured error, but the live "
+            "checkout endpoint accepts all of them and returns 200 - this is the API-level "
+            "confirmation of the same root cause as DEF-001/002/003/004 found at the UI layer."
+        ),
+        "evidence": "",
+        "reference": "docs/api-analysis/BUG_REPORT_API_FAILURES.md",
+    },
+    {
+        "id": "DEF-API-006",
+        "title": "GET /config.json is publicly exposed (information disclosure)",
+        "area": "API / config.json",
+        "severity": "Low",
+        "related_tc": ["API-CONF-001"],
+        "root_cause": (
+            "config.json is expected to 404 (it should not be a public endpoint), but it is "
+            "reachable and returns 200. Minor info-disclosure finding rather than a functional "
+            "bug - flagging separately from the validation-pattern defects above since the risk "
+            "profile is different (exposure, not broken business logic)."
+        ),
+        "evidence": "",
+        "reference": "docs/api-analysis/BUG_REPORT_API_FAILURES.md",
+    },
+    {
+        "id": "DEF-TEST-002",
+        "title": "4 API happy-path tests asserted a response shape/value the app never returns (test-script bugs, not app defects)",
+        "area": "Test infrastructure (not an app defect)",
+        "severity": "Low",
+        "related_tc": ["API-CART-001", "API-ADD-002", "API-DEL-004", "API-PROD-001"],
+        "root_cause": (
+            "API-CART-001, API-ADD-002, and API-DEL-004 all asserted a made-up REST-ish response "
+            "shape (`{status, data: {items}}`) for /viewcart, but the real, already-confirmed "
+            "shape used successfully throughout CartPage.ts all along is `{Items: [...]}` - a "
+            "top-level, capital-I array. Separately, API-PROD-001 asserted the product title as "
+            "'Samsung Galaxy S6' (capital G) when the real catalog title, used successfully "
+            "throughout cart.spec.ts/regression.spec.ts, is 'Samsung galaxy s6' (lowercase). Both "
+            "were test-authoring assumptions written without checking the real API against known "
+            "working code already in this repo. Fixed directly in tests/api.spec.ts."
+        ),
+        "evidence": "Fixed in this repo - re-run API suite to confirm these 4 now pass.",
+        "reference": "tests/api.spec.ts",
     },
     {
         "id": "DEF-TEST-001",
