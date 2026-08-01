@@ -36,16 +36,18 @@ node scripts/archive-run.js
 
 **Usage:**
 ```bash
-python3 scripts/sync_test_results_to_xlsx.py
+python scripts/sync_test_results_to_xlsx.py
 # Or with custom paths:
-python3 scripts/sync_test_results_to_xlsx.py \
+python scripts/sync_test_results_to_xlsx.py \
   --results reports/test-results/latest/results.json \
   --xlsx inputdata/Demoblaze_QA_TestCases.xlsx
 ```
 
+(Use `python3` instead of `python` if that's what your system's Python 3 install is called - e.g. most Mac/Linux setups. `package.json`'s `sync:tc-sheet` script uses whichever one is on `npm run`'s `PATH`.)
+
 **Note:** Requires `pip install openpyxl` (or `pip install openpyxl --break-system-packages`)
 
-**Auto-run:** `npm run sync:tc-sheet` (aliased in package.json)
+**Auto-run:** `npm run sync:tc-sheet` (aliased in package.json). `npm run sync:all` runs this **and** `build_defect_sheet.py` in sequence - the one to reach for after every `test:manual-suite` run.
 
 ---
 
@@ -60,7 +62,7 @@ python3 scripts/sync_test_results_to_xlsx.py \
 
 **Usage:**
 ```bash
-python3 scripts/build_defect_sheet.py
+python scripts/build_defect_sheet.py  # or python3, see the note above
 ```
 
 **Why it looks up Status live instead of hardcoding it:** so the Defect sheet's "Automation Evidence" column can never silently drift out of sync with the Login/Cart/API sheets - re-running it after a new test run always reflects the latest reality.

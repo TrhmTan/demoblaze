@@ -11,7 +11,9 @@
     "test:demo": "playwright test tests/demo.spec.ts",
     "test:perf": "playwright test --config playwright.perf.config.ts",
     "test:manual-suite": "node scripts/archive-run.js && playwright test --config playwright.manual.config.ts",
-    "sync:tc-sheet": "python3 scripts/sync_test_results_to_xlsx.py",
+    "sync:tc-sheet": "python scripts/sync_test_results_to_xlsx.py",
+    "sync:defects": "python scripts/build_defect_sheet.py",
+    "sync:all": "npm run sync:tc-sheet && npm run sync:defects",
     "test:headed": "playwright test --headed",
     "test:chromium": "playwright test --project=Chromium",
     "report": "playwright show-report"

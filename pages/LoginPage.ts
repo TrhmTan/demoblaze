@@ -34,9 +34,37 @@ export class LoginPage {
         await this.page.goto('/');
     }
 
+    /**
+     * Open the login modal AND wait until Bootstrap considers it fully
+     * shown (not mid fade-in transition).
+     *
+     * `loginModal.waitFor({state:'visible'})` resolves as soon as the
+     * element gets `display:block`, but Bootstrap 4's modal keeps
+     * `_isTransitioning=true` for the duration of its CSS fade. A click on
+     * the username/password fields or the Log in button during that window
+     * is intermittently dropped on WebKit - this is the flakiness that
+     * `regression.spec.ts` works around with a 3-attempt retry loop around
+     * its whole login() helper. Waiting for the same internal flag
+     * Bootstrap itself checks (`_isShown===true && _isTransitioning===false`
+     * - already used in closeLoginModalByBackdrop() below) fixes it at the
+     * source instead of masking it with blind retries, and doesn't require
+     * every login()-based test (including the intentional-failure ones,
+     * where a retry loop would be the wrong semantics) to know about it.
+     */
     async openLoginPopup() {
         await this.loginNavLink.click();
         await this.loginModal.waitFor({ state: 'visible' });
+        await this.page.waitForFunction(() => {
+            const win = window as any;
+            if (win.$) {
+                const instance = win.$('#logInModal').data('bs.modal');
+                if (instance) {
+                    return instance._isShown === true && instance._isTransitioning === false;
+                }
+            }
+            const el = document.querySelector('#logInModal');
+            return el !== null && el.classList.contains('show');
+        }, undefined, { timeout: 10_000 });
     }
 
     async openLoginModal() {

@@ -1,8 +1,18 @@
 # Exclude large test artifacts but keep folder structure
 
-# Test results - exclude large files, keep summaries
+# Test results - exclude large files, keep summaries.
+# results.json (sibling to html-report/, one level up) is NOT excluded -
+# it's the actual evidence: sync_test_results_to_xlsx.py and
+# build_defect_sheet.py read it, and it's what the Defect sheet's live
+# TC-status lookups are ultimately sourced from. The generated HTML
+# report is what's bulky (one .webm video + screenshots per test,
+# plus a .zip trace and a .md error-context snapshot for every failure) -
+# regenerable locally any time via `npx playwright show-report <dir>`,
+# so it's excluded wholesale rather than file-by-file.
+test-results/latest/html-report/
 test-results/latest/*.zip
 test-results/latest/traces/
+test-results/archive/**/html-report/
 test-results/archive/**/*.zip
 test-results/archive/**/traces/
 
