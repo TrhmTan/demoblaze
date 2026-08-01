@@ -161,10 +161,30 @@ test.describe('API Validation Suite', () => {
     // 4. POST /view - PRODUCT DETAILS ENDPOINT
     // ================================================================
     test.describe('POST /view - Get Product Details', () => {
+        /**
+         * UNVERIFIED HYPOTHESIS (documented, not empirically confirmed in
+         * this environment - no live network access to test it):
+         *
+         * All 5 cases below were failing with the SAME
+         * `{"errorMessage": "Product not found."}` for every idp_ value
+         * tried - including id=1 and id=2, which are real catalog products
+         * used successfully everywhere else in this suite. Two different
+         * products failing identically in the same run makes "the product
+         * was actually deleted from the shared sandbox" unlikely; a request
+         * shape problem specific to this endpoint fits the evidence better.
+         *
+         * `idp_` is the URL query param name (`prod.html?idp_=1`), which is
+         * a page-level convention - the POST /view request body field name
+         * doesn't have to match it, and every publicly documented demoblaze
+         * API reference uses `id` as the /view request body key, not `idp_`.
+         * Changed the field name below from `idp_` to `id` on that basis.
+         * This has NOT been confirmed against the live API yet - re-run
+         * this suite once to verify before treating these as fixed.
+         */
         test('API-PROD-001: Get product details with valid product ID', async ({ request }) => {
             const response = await request.post(`${API_BASE}/view`, {
                 data: {
-                    idp_: 1 // Samsung Galaxy S6
+                    id: 1 // Samsung Galaxy S6
                 }
             });
 
@@ -186,7 +206,7 @@ test.describe('API Validation Suite', () => {
         test('API-PROD-002: Get product details with valid product ID (iPhone)', async ({ request }) => {
             const response = await request.post(`${API_BASE}/view`, {
                 data: {
-                    idp_: 2 // iPhone 5
+                    id: 2 // iPhone 5
                 }
             });
 
@@ -200,7 +220,7 @@ test.describe('API Validation Suite', () => {
         test('API-PROD-003: Get product details with invalid product ID', async ({ request }) => {
             const response = await request.post(`${API_BASE}/view`, {
                 data: {
-                    idp_: 99999 // Non-existent product
+                    id: 99999 // Non-existent product
                 }
             });
 
@@ -213,7 +233,7 @@ test.describe('API Validation Suite', () => {
 
         test('API-PROD-004: Get product without required field', async ({ request }) => {
             const response = await request.post(`${API_BASE}/view`, {
-                data: {} // Missing idp_
+                data: {} // Missing id
             });
 
             // Expected: HTTP 400 Bad Request - missing ID field
@@ -226,7 +246,7 @@ test.describe('API Validation Suite', () => {
         test('API-PROD-005: Get product with zero ID', async ({ request }) => {
             const response = await request.post(`${API_BASE}/view`, {
                 data: {
-                    idp_: 0 // Invalid ID
+                    id: 0 // Invalid ID
                 }
             });
 

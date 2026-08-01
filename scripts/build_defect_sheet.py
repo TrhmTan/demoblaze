@@ -233,39 +233,49 @@ DEFECTS = [
     },
     {
         "id": "DEF-TEST-003",
-        "title": "API-ADD-002 still fails after the shape fix - looks like a timing race, not fully understood yet",
-        "area": "Test infrastructure (not an app defect, not yet resolved)",
+        "title": "API-ADD-002 gets 0 items back after 2 successful /addtocart calls - root cause still uncertain, NOT patched with a guessed fix",
+        "area": "Test infrastructure OR a real cart-persistence defect - genuinely unresolved",
         "severity": "Low",
         "related_tc": ["API-ADD-002"],
         "root_cause": (
-            "After fixing the same /viewcart shape bug as DEF-TEST-002 (body.Items instead of "
-            "body.data.items), this test still fails: it expects >= 2 items after two /addtocart "
-            "calls but /viewcart reports 0. The test calls /viewcart immediately after the second "
-            "/addtocart with no wait, unlike CartPage.ts's UI-level flow, which always waits for "
-            "the /addtocart response to settle before treating the cart as updated - this is the "
-            "leading theory but NOT yet confirmed by re-running with a deliberate wait added, so "
-            "this is flagged as an open finding rather than a fix."
+            "After fixing the /viewcart shape bug (DEF-TEST-002), this test still fails: two "
+            "sequential, individually-awaited /addtocart calls both return 200, but the following "
+            "/viewcart for the same cookie reports body.Items.length === 0, not >= 2. Unlike the "
+            "/view fix below, there isn't strong evidence pointing at one specific cause here, so "
+            "no code change was guessed at just to make it pass. Two real possibilities: (a) a "
+            "test-script issue - the synthetic cookie (test_multi_<timestamp>) is never established "
+            "through the normal index.js flow the way a real browser session would be, unlike every "
+            "UI-level cart test which goes through CartPage.ts; or (b) a genuine API-layer defect - "
+            "/addtocart doesn't reliably persist multiple sequential adds for the same cookie, which "
+            "would need to be reclassified as a real DEF-API entry, not a test bug. Recommended next "
+            "step (needs live access this environment doesn't have): run "
+            "`npx playwright test tests/api.spec.ts -g \"API-ADD-002\" --repeat-each=3` to see if the "
+            "0 is consistent (points to (b)) or intermittent (points to (a))."
         ),
         "evidence": "Confirmed still failing in the 2026-08-01 09:45 UTC run: 'Expected >= 2, Received: 0'.",
         "reference": "tests/api.spec.ts",
     },
     {
         "id": "DEF-TEST-004",
-        "title": "API-PROD-001 still fails after the title-case fix - real catalog now returns 'Product not found' for idp_=1",
-        "area": "Test infrastructure / shared public sandbox instability (not an app defect, not yet resolved)",
+        "title": "API-PROD-001/002 'Product not found' for id=1 AND id=2 - fix attempted (idp_ -> id field name), NOT YET verified live",
+        "area": "Test infrastructure (not an app defect) - fix applied, unverified",
         "severity": "Low",
-        "related_tc": ["API-PROD-001"],
+        "related_tc": ["API-PROD-001", "API-PROD-002"],
         "root_cause": (
-            "After fixing the title-case assertion ('Samsung galaxy s6' instead of 'Samsung Galaxy "
-            "S6'), the test now fails differently: the live API returns "
-            "{\"errorMessage\": \"Product not found.\"} for idp_=1, the same product ID used "
-            "successfully everywhere else in this suite as recently as the previous run. "
-            "demoblaze.com's public API is a shared, mutable sandbox every tester in the world "
-            "hits (the same root property behind DEF-SYS-001's shared guest-cart bucket), so "
-            "hardcoding idp_=1 as a stable, always-present product is inherently fragile - it may "
-            "simply be transient. Not yet fixed or confirmed as transient vs. permanent."
+            "After fixing the title-case assertion, both API-PROD-001 (id=1) AND API-PROD-002 "
+            "(id=2) started failing with the identical error "
+            "{\"errorMessage\": \"Product not found.\"} - two different real, actively-used catalog "
+            "products failing the same way in the same run makes 'both got deleted from the shared "
+            "sandbox' unlikely and points at a request-shape problem specific to this endpoint "
+            "instead. All 5 /view tests sent the product ID as `idp_` (the URL query param name used "
+            "on prod.html?idp_=1), but the POST /view request BODY field doesn't have to match that "
+            "URL param name, and publicly documented demoblaze API references use `id` as the /view "
+            "body key. Changed `idp_` -> `id` in all 5 /view tests on that basis. This is an informed "
+            "hypothesis based on external knowledge of the documented API contract, NOT something "
+            "confirmed against the live API in this session (no network access here) - needs one "
+            "clean re-run to confirm before treating as fixed."
         ),
-        "evidence": "Confirmed still failing in the 2026-08-01 09:45 UTC run, different error than before the case fix.",
+        "evidence": "Confirmed failing (both id=1 and id=2) in the 2026-08-01 09:45 UTC run; fix applied in tests/api.spec.ts, not yet re-verified.",
         "reference": "tests/api.spec.ts",
     },
     {
