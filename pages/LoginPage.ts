@@ -1,4 +1,4 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator, Dialog, expect } from '@playwright/test';
 
 export class LoginPage {
     readonly page: Page;
@@ -48,12 +48,28 @@ export class LoginPage {
      * signal happens: a native alert (failure — e.g. "Wrong password.",
      * "User does not exist.") or the welcome banner (success).
      *
-     * logIn() calls the auth API asynchronously, so on failure the alert
-     * fires from the response callback, not synchronously with the click —
-     * there is no fixed delay that is both safe and fast. This races the two
-     * real outcomes instead of assuming one of them (a previous version
-     * always waited for the modal to close + welcome banner, which meant
-     * every failed-login test hung for a full 15s timeout before failing).
+     * logIn() has TWO different failure paths, and they behave differently:
+     *
+     *  1. Empty Username or Password -> logIn() calls alert("Please fill out
+     *     Username and Password.") SYNCHRONOUSLY, inside the click handler,
+     *     before any network call.
+     *  2. Wrong password / unknown user -> the alert fires later, from the
+     *     async auth-API response callback.
+     *
+     * Case 2 works with a plain `waitForEvent('dialog')` + `click()`. Case 1
+     * DEADLOCKS with it: registering a dialog listener turns OFF Playwright's
+     * auto-dismiss, window.alert() then blocks the renderer's main thread, and
+     * because the alert is raised synchronously during the click handler,
+     * `click()` itself never resolves. The test hangs until the global timeout
+     * (this is what made TC-LOG-015/016/017 hang for the full 90s at
+     * `loginButton.click()`, reporting "performing click action" and never
+     * returning). Same root cause already documented in
+     * CartPage.clickPurchaseExpectingAlert().
+     *
+     * Fix: accept the dialog INSIDE a `page.once('dialog', ...)` handler, which
+     * releases the blocked main thread immediately so `click()` can resolve.
+     * Never await the dialog and the click together.
+     *
      * The captured dialog message is available to assertLoginFail().
      */
     async login(username: string, password: string) {
@@ -61,27 +77,40 @@ export class LoginPage {
         await this.usernameInput.fill(username);
         await this.passwordInput.fill(password);
 
-        const dialogOutcome = this.page
-            .waitForEvent('dialog', { timeout: 10_000 })
-            .then(dialog => ({ type: 'dialog' as const, dialog }))
-            .catch(() => ({ type: 'timeout' as const }));
+        let resolveDialog!: (message: string) => void;
+        const dialogOutcome = new Promise<{ type: 'dialog'; message: string }>(resolve => {
+            resolveDialog = (message: string) => resolve({ type: 'dialog', message });
+        });
+
+        // Accept immediately in the handler - this is what unblocks click().
+        const onDialog = async (dialog: Dialog) => {
+            const message = dialog.message();
+            await dialog.accept().catch(() => {});
+            resolveDialog(message);
+        };
+        this.page.once('dialog', onDialog);
 
         const successOutcome = this.welcomeUser
             .waitFor({ state: 'visible', timeout: 10_000 })
             .then(() => ({ type: 'success' as const }))
             .catch(() => ({ type: 'timeout' as const }));
 
-        await this.loginButton.click();
-        const outcome = await Promise.race([dialogOutcome, successOutcome]);
+        try {
+            await this.loginButton.click();
+            const outcome = await Promise.race([dialogOutcome, successOutcome]);
 
-        if (outcome.type === 'dialog') {
-            this.lastDialogMessage = outcome.dialog.message();
-            await outcome.dialog.accept();
+            if (outcome.type === 'dialog') {
+                this.lastDialogMessage = outcome.message;
+            }
+            // type === 'success': nothing to accept; assertLoginSuccess() verifies it.
+            // type === 'timeout': neither signal arrived in 10s - both
+            // assertLoginSuccess() and assertLoginFail() will fail loudly below,
+            // which is correct: that state means the app didn't respond as expected.
+        } finally {
+            // Drop the listener if no dialog ever fired, so it can't leak into
+            // the next action on this page.
+            this.page.off('dialog', onDialog);
         }
-        // type === 'success': nothing to accept; assertLoginSuccess() verifies it.
-        // type === 'timeout': neither signal arrived in 10s — both
-        // assertLoginSuccess() and assertLoginFail() will fail loudly below,
-        // which is correct: that state means the app didn't respond as expected.
     }
 
     /**
