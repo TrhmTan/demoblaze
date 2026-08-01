@@ -18,11 +18,15 @@ cart.spec.ts, api.spec.ts starts with its manual TC ID
 (e.g. "TC-CRT-005: Delete a product from the cart"), so we match on that
 prefix rather than test order/index.
 
-Known duplicate TC IDs in cart.spec.ts (same ID, two tests - an original and
-a later "[DEF-xxx]" retest written after a defect fix): TC-CRT-020, 027,
-028, 029, 030, 031, 032. Per team decision, the "[DEF-xxx]" version is
-authoritative for Actual Result/Status; the older duplicate is only
-referenced in the Notes column so the history isn't silently dropped.
+cart.spec.ts used to carry two implementations for 12 TC IDs (020, 027-033,
+035-038): an original that asserted the order succeeding, and a later
+"[DEF-xxx]"-tagged retest that correctly asserts rejection per the manual
+sheet's Expected Result. Both ran and both got a Status, silently
+contradicting each other in the same report. Removed the stale originals
+(2026-08-02) - each of those TC IDs now maps to exactly one test. This code
+still picks a "canonical" entry defensively via pick_canonical() below in
+case a duplicate is ever reintroduced by accident, but no TC ID should
+legitimately hit that branch anymore.
 
 Usage:
     python3 scripts/sync_test_results_to_xlsx.py \
