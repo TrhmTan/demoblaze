@@ -170,6 +170,12 @@ export class CartPage {
 
         // Chốt vào response /addtocart thay vì sleep 1000ms. Round trip thật
         // đo được có lúc > 1.5s, sleep ngắn hơn làm lần add kế tiếp bị race.
+        //
+        // LƯU Ý (đã verify trực tiếp bằng API call thật ngoài Playwright,
+        // 2026-08-01): /addtocart trả HTTP 200 với body RỖNG ngay cả khi
+        // item được add THÀNH CÔNG (verify lại bằng /viewcart thấy item nằm
+        // đủ trong đó). Đây KHÔNG phải dấu hiệu lỗi - đừng dùng độ dài body
+        // để quyết định success/fail cho endpoint này.
         const addToCart = this.page.waitForResponse(
             r => r.url().includes('/addtocart') && r.request().method() === 'POST',
             { timeout: CART_LOAD_TIMEOUT },
@@ -222,6 +228,20 @@ export class CartPage {
         await this.waitForCartLoad(async () => {
             await row.locator('a:has-text("Delete")').click();
         });
+    }
+
+    /** Clear all items from cart (for test isolation) */
+    async clearCart() {
+        await this.navigateToCart();
+        let count = await this.getCartRowsCount();
+        while (count > 0) {
+            // Delete first row repeatedly until cart is empty
+            const firstDeleteLink = this.page.locator('#tbodyid tr').first().locator('a:has-text("Delete")');
+            await this.waitForCartLoad(async () => {
+                await firstDeleteLink.click();
+            });
+            count = await this.getCartRowsCount();
+        }
     }
 
     /** Open the Place Order modal */

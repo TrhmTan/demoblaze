@@ -17,6 +17,10 @@ test.describe('CartPage Test Suite', () => {
     test.beforeEach(async ({ page }) => {
         // Ensure clean page context state before each test
         await page.goto('/');
+        // Clear cart to prevent state leakage between tests
+        // (all tests in this suite use the same shared account created in beforeAll)
+        const cartPage = new CartPage(page);
+        await cartPage.clearCart();
     });
 
     // TC-CRT-001: Add a product to the cart

@@ -63,24 +63,32 @@ FILE_TO_SHEET = {
     "api.spec.ts": "API",
 }
 
+# Status is driven by result.status (what the application ACTUALLY did), never
+# by test.status (Playwright's expected/unexpected outcome category).
+#
+# This distinction matters and was previously gotten wrong. Playwright's
+# "expected"/"unexpected" answers a CI question: "did this run match the
+# annotations I wrote?" A test.fail()-annotated case that successfully
+# reproduces a defect is "expected" - the run went as the author predicted.
+# Mapping that to Pass put 14 defect-reproducing Cart cases in the sheet as
+# Pass while the Defect sheet linked them to open bugs, which reads as
+# nonsense to anyone reviewing it (a passing case cannot evidence a bug), and
+# inflated the Cart pass rate to 94%. TC-CRT-046 was wrong in the opposite
+# direction: the defect did not reproduce that run (app behaved correctly),
+# Playwright called it "unexpected", and the sheet said Fail.
+#
+# A manual test case sheet answers a different question: "did the application
+# behave correctly for this case?" So Pass/Fail must follow the real execution
+# result. A reproduced defect is a Fail with a defect linked - which is exactly
+# what makes the Defect sheet's cross-references coherent. Whether that failure
+# was anticipated belongs in Actual Result ("FAILED AS EXPECTED - confirms
+# defect ..."), not in Status.
 STATUS_MAP = {
-    # Playwright's per-test outcome status (test.status in the JSON reporter,
-    # NOT result.status): "expected" means the run matched what the test
-    # declared it should do - a plain pass, OR a test.fail()-annotated test
-    # that correctly failed to confirm a documented defect. "unexpected"
-    # means it did NOT match - either a real regression, or a
-    # test.fail()-annotated defect that stopped reproducing (good news, but
-    # needs the annotation removed) or timed out for the wrong reason.
-    "expected": "Pass",
-    "unexpected": "Fail",
-    "flaky": "Flaky",
-    "skipped": "Skipped",
-    # Fallback keys in case a report ever exposes the raw result status
-    # instead (defensive - should not normally be hit).
     "passed": "Pass",
     "failed": "Fail",
     "timedOut": "Fail",
     "interrupted": "Fail",
+    "skipped": "Skipped",
 }
 
 
@@ -276,7 +284,10 @@ def main():
                 continue
 
             actual_text = format_actual_result(canonical, run_label)
-            status_text = STATUS_MAP.get(canonical["status"], canonical["status"])
+            # Keyed on raw_status (what the app actually did), not status
+            # (Playwright's expected/unexpected category) - see STATUS_MAP.
+            raw = canonical.get("raw_status", "unknown")
+            status_text = STATUS_MAP.get(raw, raw)
 
             # Defensive: strip any remaining control characters (not just ANSI
             # color codes) that openpyxl's IllegalCharacterError would reject,
