@@ -85,7 +85,7 @@ Full script usage is documented in `scripts/README.md`.
 
 Found by running the suites above against the live site - not synthetic examples. Full detail with reproduction steps and live TC cross-references: **Defect sheet in `inputdata/Demoblaze_QA_TestCases.xlsx`** (rebuilt by `npm run sync:defects`).
 
-**Found via the demo/cart flow directly** (7 total) - i.e., the exact kind of edge case the brief asks the demo to handle:
+**Found via the demo/cart flow directly** (7 defects) - i.e., the exact kind of edge case the brief asks the demo to handle:
 
 | ID | Description | Severity |
 |---|---|---|
@@ -96,9 +96,11 @@ Found by running the suites above against the live site - not synthetic examples
 | DEF-006 | The invoice date is off by one month on every order (`date.getMonth()` used without `+1`). | Low |
 | DEF-SYS-001 | The guest-cart cookie is only set by the homepage script; arriving via a direct product link skips it, and `/viewcart` then returns a bucket shared by every cookie-less guest on the live site - not an empty cart. | Critical |
 
-**Found via the additional API-level testing** (6 total): `/login`, `/viewcart`, `/addtocart`, `/deleteitem`, `/view`, and `/purchaseorder` accept almost any malformed or invalid input with HTTP 200 instead of 400/401/404 (Critical/High, `DEF-API-002` through `DEF-API-005`); `/addtocart` silently drops items added under a cookie the API invented itself instead of rejecting the request (`DEF-API-007`, High); and `config.json` is publicly reachable when it shouldn't be (`DEF-API-006`, Low).
+**Found via the additional API-level testing** (6 defects): `/login`, `/viewcart`, `/addtocart`, `/deleteitem`, `/view`, and `/purchaseorder` accept almost any malformed or invalid input with HTTP 200 instead of 400/401/404 (Critical/High, `DEF-API-002` through `DEF-API-005`); `/addtocart` silently drops items added under a cookie the API invented itself instead of rejecting the request (`DEF-API-007`, High); and `config.json` is publicly reachable when it shouldn't be (`DEF-API-006`, Low).
 
-16 defects logged in total: 13 confirmed application defects, 3 test-authoring issues caught and corrected while building the API suite (documented in the Defect sheet for transparency, not counted as app defects).
+**Test-authoring issues caught while building the API suite** (3 findings - not app defects, not counted in the totals above): the test script asserted a response shape the real API never returned (`DEF-TEST-002` - fixed, confirmed passing against the live API); a request sent the product ID under the wrong field name (`DEF-TEST-004` - fix applied based on the documented API contract, but not yet re-run against the live site to confirm); and 13 checkout test cases were timing out instead of failing fast, a test-code issue unrelated to app behavior (`DEF-TEST-001` - fixed). Kept in the Defect sheet for a transparent record of what got caught and corrected, not because they reflect anything wrong with demoblaze.com.
+
+**16 entries in the Defect sheet total: 7 (demo/cart) + 6 (API) = 13 confirmed application defects, plus the 3 test-authoring findings above.**
 
 ## Known limitations
 
