@@ -230,20 +230,6 @@ export class CartPage {
         });
     }
 
-    /** Clear all items from cart (for test isolation) */
-    async clearCart() {
-        await this.navigateToCart();
-        let count = await this.getCartRowsCount();
-        while (count > 0) {
-            // Delete first row repeatedly until cart is empty
-            const firstDeleteLink = this.page.locator('#tbodyid tr').first().locator('a:has-text("Delete")');
-            await this.waitForCartLoad(async () => {
-                await firstDeleteLink.click();
-            });
-            count = await this.getCartRowsCount();
-        }
-    }
-
     /** Open the Place Order modal */
     async openPlaceOrderModal() {
         await this.placeOrderButton.click();

@@ -4,14 +4,20 @@ import fs from 'fs';
 import path from 'path';
 
 const BASE_URL = 'https://www.demoblaze.com';
-// Verified live on demoblaze.com (Aug 2026): product cards no longer carry an
-// onclick="byId(...)" attribute - they're plain `<a class="hrefch" href="prod.html?idp_=N">`.
-// The old selector a[onclick*="byid"] matches 0 elements, so .click() on it
-// hangs forever waiting for a match that will never appear, until the global
-// test timeout (120000ms) kills the test. That is the actual cause of
-// PERF-LOAD-001/002/003 failing with "Test timeout of 120000ms exceeded".
+
 const PRODUCT_LINK_SELECTOR = 'a.hrefch';
 const metrics: any[] = [];
+
+const PERF_TEST_USER = {
+  username: `perf_user_${Date.now()}`,
+  password: 'Test@1234',
+};
+
+test.beforeAll(async ({ request }) => {
+  await request.post('https://api.demoblaze.com/signup', {
+    data: { username: PERF_TEST_USER.username, password: btoa(PERF_TEST_USER.password) },
+  });
+});
 
 function recordMetric(testName: string, responseTime: number, status: 'success' | 'failure', error?: string) {
   metrics.push({
@@ -133,6 +139,16 @@ test.describe('🔥 STRESS TESTING - High Load (50+ concurrent simulated)', () =
         try {
           // Re-query product links on each iteration: after goBack() + page load,
           // the old cached locator from the previous iteration is stale.
+          //
+          // locator.all() takes an IMMEDIATE snapshot - it does not auto-wait.
+          // index.html renders its product cards from the /entries AJAX call,
+          // which lands after waitForLoadState('load') has already resolved, so
+          // calling .all() straight after the navigation returns an empty array,
+          // hits the `length === 0` break below, and leaves successCount at 0.
+          // (The PERF-LOAD tests above never hit this because .first().click()
+          // auto-waits.) Wait for the first card to actually exist first.
+          await page.locator(PRODUCT_LINK_SELECTOR).first()
+            .waitFor({ state: 'visible', timeout: 15000 });
           const productLinks = await page.locator(PRODUCT_LINK_SELECTOR).all();
           if (productLinks.length === 0) {
             console.log(`  Iteration ${i}: no product links found`);
@@ -178,6 +194,9 @@ test.describe('🔥 STRESS TESTING - High Load (50+ concurrent simulated)', () =
         try {
           // Re-query product links on each iteration to avoid stale locators
           // (after clicking Home to return, the previously cached product list is no longer valid).
+          // .all() does not auto-wait - see the note in PERF-STRESS-001 above.
+          await page.locator(PRODUCT_LINK_SELECTOR).first()
+            .waitFor({ state: 'visible', timeout: 15000 });
           const productLinks = await page.locator(PRODUCT_LINK_SELECTOR).all();
           if (productLinks.length === 0) {
             console.log(`  Iteration ${i}: no product links found`);
@@ -226,12 +245,12 @@ test.describe('🔥 STRESS TESTING - High Load (50+ concurrent simulated)', () =
           await page.goto(`${BASE_URL}/index.html`);
           await page.click('a:has-text("Log in")');
           await page.waitForSelector('#logInModal', { timeout: 5000 });
-          await page.fill('#loginusername', 'TMA');
-          await page.fill('#loginpassword', 'tma@12345');
+          await page.fill('#loginusername', PERF_TEST_USER.username);
+          await page.fill('#loginpassword', PERF_TEST_USER.password);
           await page.click('#logInModal button:has-text("Log in")');
           await page.waitForSelector('a:has-text("Welcome")', { timeout: 5000 });
           successCount++;
-          await page.click('a:has-text("Log out")').catch(() => {});
+          await page.click('a:has-text("Log out")').catch(() => { });
           await page.waitForTimeout(300);
         } catch (e) {
           console.log(`  Login attempt ${attempt + 1} failed`);

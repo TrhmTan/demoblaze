@@ -2,15 +2,11 @@ import { test, expect, Page } from '@playwright/test';
 
 const BASE_URL = 'https://www.demoblaze.com';
 
-// Test data
 const TEST_USER = {
-  username: 'TMA',
-  password: 'tma@12345'
+  username: `regression_user_${Date.now()}`,
+  password: 'Test@1234'
 };
 
-// Product IDs map to /prod.html?idp_=<id> on demoblaze.
-// Navigating by URL is deterministic; clicking through index.html relies on an
-// onclick handler that is unreliable on the WebKit engine.
 const TEST_PRODUCTS = [
   { id: 1, name: 'Samsung galaxy s6', price: 360 },
   { id: 2, name: 'Nokia lumia 1520', price: 820 }
@@ -22,7 +18,7 @@ const TEST_PRODUCTS = [
 
 /** Accept every native dialog. Must be registered before any action that opens one. */
 function autoAcceptDialogs(page: Page) {
-  page.on('dialog', dialog => dialog.accept().catch(() => {}));
+  page.on('dialog', dialog => dialog.accept().catch(() => { }));
 }
 
 /** Open a product detail page directly and wait until it is interactive. */
@@ -33,25 +29,35 @@ async function gotoProduct(page: Page, productId: number) {
   await page.locator('a:has-text("Add to cart")').waitFor({ state: 'visible', timeout: 20000 });
 }
 
-/** Add the currently open product to the cart and wait for the API call to settle. */
+/**
+ * Add the currently open product to the cart and wait until the add has
+ * actually been committed by the page - not merely acknowledged by the network.
+ *
+ * Waiting on the /addtocart response alone is NOT enough. demoblaze fires
+ * alert("Product added") from that request's AJAX *success callback*, which
+ * runs strictly after Playwright observes the response at the network layer.
+ * So `await addToCart` returns while the callback is still pending, and any
+ * assertion on the captured dialog text immediately afterwards reads the
+ * empty string - the cause of REG-CART-001/REG-INT-001 failing with
+ * `Expected substring: "Product added" / Received string: ""`, and of
+ * REG-CART-005 seeing only the first of two products (Total: 360, not 1180).
+ *
+ * The dialog event is the real "the callback has run" signal, so wait for
+ * both. Callers that register their own page.on('dialog') handler still get
+ * it: every listener receives the event, and waitForEvent does not consume it.
+ */
 async function addCurrentProductToCart(page: Page) {
-  // "Product added" is a native alert fired from the /addtocart AJAX success
-  // callback (not synchronously with the click), so a fixed sleep either
-  // races the request or wastes time. Chốt vào chính response /addtocart.
   const addToCart = page.waitForResponse(
     r => r.url().includes('/addtocart') && r.request().method() === 'POST',
     { timeout: 20000 }
   );
+  const productAddedAlert = page.waitForEvent('dialog', { timeout: 20000 });
   await page.click('a:has-text("Add to cart")');
   await addToCart;
+  await productAddedAlert;
 }
 
-/**
- * Poll Bootstrap 4's internal modal state instead of sleeping through the
- * fade animation. Same guard Bootstrap itself checks before accepting
- * interaction — see LoginPage.closeLoginModalByBackdrop for the full
- * rationale. A fixed 500ms sleep is a guess; this is the actual signal.
- */
+
 async function waitForLoginModalReady(page: Page) {
   await page.waitForFunction(() => {
     const win = window as any;
@@ -64,14 +70,7 @@ async function waitForLoginModalReady(page: Page) {
   }, undefined, { timeout: 10000 });
 }
 
-/**
- * Navigate to the cart page and wait until every row has actually rendered,
- * using the /viewcart response as the single source of truth for the
- * expected row count (see clearCart() comment: DOM row count during load is
- * not trustworthy, and neither is a fixed sleep — cart.js renders one row
- * per product via N sequential /view calls, so load time scales with cart
- * size).
- */
+
 async function gotoCartAndWaitLoaded(page: Page): Promise<number> {
   const viewCart = page.waitForResponse(
     r => r.url().includes('/viewcart') && r.request().method() === 'POST',
@@ -90,11 +89,7 @@ async function gotoCartAndWaitLoaded(page: Page): Promise<number> {
   return expectedRows;
 }
 
-/**
- * Log in, retrying on transient failures.
- * WebKit intermittently loses the first submit while the Bootstrap modal is
- * still fading, so a single attempt is not reliable.
- */
+
 async function login(page: Page, attempts = 3) {
   for (let i = 1; i <= attempts; i++) {
     try {
@@ -119,23 +114,29 @@ async function login(page: Page, attempts = 3) {
   }
 }
 
+
 /**
  * Remove every line item so each cart test starts from a known empty state.
  *
- * IMPORTANT: Demoblaze's guest-cart identity cookie (`user=<uuid>`) is only
- * set by the script on index.html (js/index.js). prod.html and cart.html do
- * NOT set it. If cart.html is the very first page visited in a browser
- * context, the request to /viewcart carries an empty cookie, and the backend
- * returns the SHARED bucket used by every cookie-less guest hitting
- * demoblaze.com worldwide - not our own cart. That shared bucket is huge and
- * changes in real time from unrelated traffic, which is exactly why row
- * counts were observed growing mid-poll (163 -> 825, 56 -> 672, 0 -> 720) and
- * totals didn't match a single added product. Visiting index.html first
- * guarantees a private guest identity before any cart.html/prod.html call.
+ * Visiting index.html first is mandatory: the guest-cart identity cookie
+ * (user=<uuid>) is set only by js/index.js. prod.html and cart.html never set
+ * it, and a cart.html request carrying an empty cookie gets back the bucket
+ * shared by every cookie-less guest worldwide (DEF-SYS-001) instead of our own.
+ *
+ * 'domcontentloaded' is too weak a signal to prove that happened - it fires
+ * when the HTML is parsed, which can be before index.js has written the
+ * cookie. That is why REG-CART-002 found 26-28 foreign rows whose count kept
+ * moving under it (0 -> 1 -> 26 in the failure log): live traffic from other
+ * guests mutating the shared bucket mid-test. Wait for the cookie itself,
+ * which is the actual precondition, rather than a load-state proxy for it.
  */
 async function clearCart(page: Page) {
   await page.goto(`${BASE_URL}/index.html`);
-  await page.waitForLoadState('domcontentloaded');
+  await page.waitForFunction(
+    () => document.cookie.includes('user='),
+    undefined,
+    { timeout: 15000 }
+  );
 
   await gotoCartAndWaitLoaded(page);
 
@@ -144,9 +145,7 @@ async function clearCart(page: Page) {
     const deleteLink = page.locator('#tbodyid tr a:has-text("Delete")').first();
     if (await deleteLink.count() === 0) break;
 
-    // deleteItem() in cart.js calls location.reload() after /deleteitem
-    // resolves, which fires a fresh /viewcart. Chốt vào đúng response đó
-    // thay vì đoán thời gian reload mất bao lâu.
+
     const viewCartAfterDelete = page.waitForResponse(
       r => r.url().includes('/viewcart') && r.request().method() === 'POST',
       { timeout: 20000 }
@@ -162,9 +161,7 @@ async function clearCart(page: Page) {
     await expect(page.locator('#tbodyid tr')).toHaveCount(rowsAfter, { timeout: 20000 });
   }
 
-  // Fail loudly instead of silently continuing on a dirty cart - if this
-  // ever fires again after the cookie fix, it means a real regression, not
-  // the shared-bucket issue.
+
   const remaining = await page.locator('#tbodyid tr').count();
   if (remaining > 0) {
     throw new Error(`clearCart: cart still has ${remaining} item(s) after cleanup`);
@@ -178,17 +175,16 @@ async function readCartTotal(page: Page): Promise<string> {
   await page.waitForFunction(
     () => (document.querySelector('#totalm')?.textContent || '').trim().length > 6,
     { timeout: 15000 }
-  ).catch(() => {});
+  ).catch(() => { });
   return (await page.locator('#totalm').textContent()) || '';
 }
 
-/**
- * REGRESSION TEST SUITE
- *
- * Purpose: Verify Login & Cart features work correctly
- * Scope: Happy paths + critical workflows
- * Coverage: User authentication & shopping cart
- */
+
+test.beforeAll(async ({ request }) => {
+  await request.post('https://api.demoblaze.com/signup', {
+    data: { username: TEST_USER.username, password: btoa(TEST_USER.password) },
+  });
+});
 
 test.describe('🔄 REGRESSION TESTS - Login & Cart Features', () => {
 
@@ -225,11 +221,6 @@ test.describe('🔄 REGRESSION TESTS - Login & Cart Features', () => {
       await page.fill('#loginusername', TEST_USER.username);
       await page.fill('#loginpassword', 'wrongpassword123');
 
-      // The rejection alert fires from the /login AJAX callback, not
-      // synchronously with the click - wait for the dialog itself rather
-      // than sleeping a guessed duration, and assert its actual text so a
-      // silently-changed error message would fail loudly instead of being
-      // masked by a timing-based check.
       const dialogPromise = page.waitForEvent('dialog', { timeout: 10000 });
       await page.click('#logInModal button:has-text("Log in")');
       const dialog = await dialogPromise;
@@ -286,7 +277,7 @@ test.describe('🔄 REGRESSION TESTS - Login & Cart Features', () => {
       let dialogMessage = '';
       page.on('dialog', dialog => {
         dialogMessage = dialog.message();
-        dialog.accept().catch(() => {});
+        dialog.accept().catch(() => { });
       });
 
       await clearCart(page);
@@ -377,9 +368,6 @@ test.describe('🔄 REGRESSION TESTS - Login & Cart Features', () => {
       const rows = page.locator('#tbodyid tr');
       await expect(rows).toHaveCount(TEST_PRODUCTS.length, { timeout: 20000 });
 
-      // Business rule: displayed total must equal the sum of the line items.
-      // Reading prices from the table avoids hardcoding catalog prices that
-      // could drift without the test noticing.
       const lineItemSum = await page.locator('#tbodyid tr td:nth-child(3)').evaluateAll(
         cells => cells.reduce((sum, c) => sum + Number((c.textContent || '0').trim()), 0)
       );
@@ -404,7 +392,7 @@ test.describe('🔄 REGRESSION TESTS - Login & Cart Features', () => {
       let dialogMessage = '';
       page.on('dialog', dialog => {
         dialogMessage = dialog.message();
-        dialog.accept().catch(() => {});
+        dialog.accept().catch(() => { });
       });
 
       await clearCart(page);
@@ -542,12 +530,24 @@ test.describe('🔄 REGRESSION TESTS - Login & Cart Features', () => {
       const invoiceText = await page.locator('.sweet-alert p').textContent();
       expect(invoiceText).toContain(`Amount: ${expectedTotal}`);
 
-      // Dismiss and verify navigation back to home
+      // Dismiss and verify navigation back to home.
+      //
+      // The app side here is verified correct, not suspect: js/cart.js opens
+      // its success swal with `closeOnConfirm: false` and a callback that runs
+      // `location.href = 'index.html'`, and a real click on the confirm button
+      // against the live site does navigate there. So the flakiness is in how
+      // this is asserted, not in what the site does.
+      //
+      // page.click() already awaits the navigation its own click triggers, so
+      // by the time waitForURL() runs, the navigation lifecycle event it hooks
+      // onto can already have fired - leaving it waiting for a "load" that has
+      // been and gone. That ordering is timing-dependent, which is why it hit
+      // Chromium and Firefox but not WebKit. Polling the URL asserts the exact
+      // same end state without depending on catching an event mid-flight.
       await page.click('.sweet-alert .confirm');
-      // Navigation from purchase dialog can take 15-20s (API roundtrip + page load).
-      // purchaseOrder() calls location.href = 'index.html' inside the success callback,
-      // and page reload is not instantaneous on slow connections.
-      await page.waitForURL(/index\.html|\/(?:\?.*)?$/, { timeout: 20000 });
+      await expect
+        .poll(() => page.url(), { timeout: 20000 })
+        .toMatch(/index\.html|\/(?:\?.*)?$/);
     });
   });
 });
@@ -587,9 +587,6 @@ test.describe('📊 PERFORMANCE MARKERS', () => {
      * Measures the click -> confirmation-dialog roundtrip. The previous version
      * measured a fixed sleep, which always reported the sleep duration.
      */
-    // Visit index.html first so the guest-cart cookie exists before the
-    // addtocart call (see clearCart() comment) - otherwise this write lands
-    // in demoblaze's shared cookie-less bucket instead of this context's own cart.
     await page.goto(`${BASE_URL}/index.html`);
     await page.waitForLoadState('domcontentloaded');
     await gotoProduct(page, TEST_PRODUCTS[0].id);
@@ -602,7 +599,7 @@ test.describe('📊 PERFORMANCE MARKERS', () => {
 
     const dialog = await dialogPromise;
     const duration = Date.now() - startTime;
-    await dialog.accept().catch(() => {});
+    await dialog.accept().catch(() => { });
     console.log(`✓ Add-to-cart round-trip: ${duration}ms`);
     expect(duration).toBeLessThan(15000);
   });

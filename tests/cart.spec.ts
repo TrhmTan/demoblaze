@@ -15,12 +15,16 @@ test.describe('CartPage Test Suite', () => {
     });
 
     test.beforeEach(async ({ page }) => {
-        // Ensure clean page context state before each test
+        // Ensure clean page context state before each test.
+        //
+        // Visiting index.html first is NOT optional: Demoblaze's guest-cart
+        // identity cookie (user=<uuid>) is set only by js/index.js. Landing
+        // straight on cart.html/prod.html sends an empty cookie to /viewcart
+        // and gets back the bucket shared by every cookie-less guest (see
+        // DEF-SYS-001). Playwright already gives each test a fresh browser
+        // context - and therefore a fresh cookie and a private cart - so no
+        // explicit cart teardown is needed on top of this.
         await page.goto('/');
-        // Clear cart to prevent state leakage between tests
-        // (all tests in this suite use the same shared account created in beforeAll)
-        const cartPage = new CartPage(page);
-        await cartPage.clearCart();
     });
 
     // TC-CRT-001: Add a product to the cart

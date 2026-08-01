@@ -16,8 +16,8 @@ import { CartPage } from '../pages/CartPage';
  */
 
 const TEST_USER = {
-  username: 'TMA',
-  password: 'tma@12345'
+  username: `demo_user_${Date.now()}`,
+  password: 'Test@1234'
 };
 
 const TEST_PRODUCT = {
@@ -27,6 +27,12 @@ const TEST_PRODUCT = {
 };
 
 test.describe('🚀 AUTOMATION IMPLEMENTATION DEMO - Complete Order Flow', () => {
+
+  test.beforeAll(async ({ request }) => {
+    await request.post('https://api.demoblaze.com/signup', {
+      data: { username: TEST_USER.username, password: btoa(TEST_USER.password) },
+    });
+  });
 
   // ================================================================
   // HAPPY PATH: COMPLETE ORDER FLOW

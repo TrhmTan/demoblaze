@@ -86,7 +86,7 @@ npx playwright show-report
 
 ### REG-LOGIN-001: Valid Login
 1. Login with `TEST_USER` credentials via the shared `login()` helper
-2. Verify "Welcome `TMA`" banner appears
+2. Verify "Welcome `<TEST_USER.username>`" banner appears
 
 ### REG-LOGIN-002: Invalid Credentials
 1. Open the login modal, fill in the valid username with a wrong password
@@ -183,9 +183,16 @@ These output timing data to console without failing the run on slow responses. S
 
 ### Test User (`TEST_USER` in `regression.spec.ts`):
 ```
-Username: TMA
-Password: tma@12345
+Username: regression_user_<timestamp>  (signed up dynamically in beforeAll)
+Password: Test@1234
 ```
+> 2026-08-01: was a fixed shared account (`TMA`/`tma@12345`) used by every
+> suite (login/cart/api/regression/performance/demo). That caused
+> cross-suite cart pollution and race conditions all day - one suite's
+> add-to-cart/delete would land in another's cart mid-test. Each suite now
+> signs up its own unique account per run (same pattern as
+> login.spec.ts/cart.spec.ts) so carts never collide. Don't hardcode a
+> shared username again.
 
 ### Test Products (`TEST_PRODUCTS`, navigated to directly via `/prod.html?idp_=<id>` rather than clicking through the homepage, which is unreliable on WebKit):
 ```
