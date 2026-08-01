@@ -217,21 +217,55 @@ DEFECTS = [
     },
     {
         "id": "DEF-TEST-002",
-        "title": "4 API happy-path tests asserted a response shape/value the app never returns (test-script bugs, not app defects)",
+        "title": "API-CART-001/API-DEL-004 asserted a response shape the app never returns (test-script bug, not an app defect) - confirmed fixed",
         "area": "Test infrastructure (not an app defect)",
         "severity": "Low",
-        "related_tc": ["API-CART-001", "API-ADD-002", "API-DEL-004", "API-PROD-001"],
+        "related_tc": ["API-CART-001", "API-DEL-004"],
         "root_cause": (
-            "API-CART-001, API-ADD-002, and API-DEL-004 all asserted a made-up REST-ish response "
-            "shape (`{status, data: {items}}`) for /viewcart, but the real, already-confirmed "
-            "shape used successfully throughout CartPage.ts all along is `{Items: [...]}` - a "
-            "top-level, capital-I array. Separately, API-PROD-001 asserted the product title as "
-            "'Samsung Galaxy S6' (capital G) when the real catalog title, used successfully "
-            "throughout cart.spec.ts/regression.spec.ts, is 'Samsung galaxy s6' (lowercase). Both "
-            "were test-authoring assumptions written without checking the real API against known "
-            "working code already in this repo. Fixed directly in tests/api.spec.ts."
+            "Both asserted a made-up REST-ish response shape (`{status, data: {items}}`) for "
+            "/viewcart, but the real, already-confirmed shape used successfully throughout "
+            "CartPage.ts all along is `{Items: [...]}` - a top-level, capital-I array. Fixed in "
+            "tests/api.spec.ts and confirmed passing in the 2026-08-01 09:45 UTC run (both were "
+            "failing before the fix, passing after, with no other change)."
         ),
-        "evidence": "Fixed in this repo - re-run API suite to confirm these 4 now pass.",
+        "evidence": "",
+        "reference": "tests/api.spec.ts",
+    },
+    {
+        "id": "DEF-TEST-003",
+        "title": "API-ADD-002 still fails after the shape fix - looks like a timing race, not fully understood yet",
+        "area": "Test infrastructure (not an app defect, not yet resolved)",
+        "severity": "Low",
+        "related_tc": ["API-ADD-002"],
+        "root_cause": (
+            "After fixing the same /viewcart shape bug as DEF-TEST-002 (body.Items instead of "
+            "body.data.items), this test still fails: it expects >= 2 items after two /addtocart "
+            "calls but /viewcart reports 0. The test calls /viewcart immediately after the second "
+            "/addtocart with no wait, unlike CartPage.ts's UI-level flow, which always waits for "
+            "the /addtocart response to settle before treating the cart as updated - this is the "
+            "leading theory but NOT yet confirmed by re-running with a deliberate wait added, so "
+            "this is flagged as an open finding rather than a fix."
+        ),
+        "evidence": "Confirmed still failing in the 2026-08-01 09:45 UTC run: 'Expected >= 2, Received: 0'.",
+        "reference": "tests/api.spec.ts",
+    },
+    {
+        "id": "DEF-TEST-004",
+        "title": "API-PROD-001 still fails after the title-case fix - real catalog now returns 'Product not found' for idp_=1",
+        "area": "Test infrastructure / shared public sandbox instability (not an app defect, not yet resolved)",
+        "severity": "Low",
+        "related_tc": ["API-PROD-001"],
+        "root_cause": (
+            "After fixing the title-case assertion ('Samsung galaxy s6' instead of 'Samsung Galaxy "
+            "S6'), the test now fails differently: the live API returns "
+            "{\"errorMessage\": \"Product not found.\"} for idp_=1, the same product ID used "
+            "successfully everywhere else in this suite as recently as the previous run. "
+            "demoblaze.com's public API is a shared, mutable sandbox every tester in the world "
+            "hits (the same root property behind DEF-SYS-001's shared guest-cart bucket), so "
+            "hardcoding idp_=1 as a stable, always-present product is inherently fragile - it may "
+            "simply be transient. Not yet fixed or confirmed as transient vs. permanent."
+        ),
+        "evidence": "Confirmed still failing in the 2026-08-01 09:45 UTC run, different error than before the case fix.",
         "reference": "tests/api.spec.ts",
     },
     {
